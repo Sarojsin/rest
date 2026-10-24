@@ -1,0 +1,84 @@
+from uuid import uuid4
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import ValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.api.v1.router import api_router
+from app.core.config import settings
+from app.core.errors import AppError, app_error_handler, http_error_handler, problem_body
+from app.db.base import Base
+from app.db.session import SessionLocal, engine
+from app.seed import seed_if_empty
+
+import app.models  # noqa: F401
+
+
+def create_app() -> FastAPI:
+    application = FastAPI(title=settings.app_name, version="0.1.0")
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origin_list or ["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    application.add_exception_handler(AppError, app_error_handler)
+    application.add_exception_handler(StarletteHTTPException, http_error_handler)
+
+    @application.exception_handler(RequestValidationError)
+    async def request_validation_handler(request: Request, exc: RequestValidationError):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=422,
+            content=problem_body(
+                request, 422, "VALIDATION_ERROR", "Validation error", "The request failed validation."
+            ),
+            media_type="application/problem+json",
+        )
+
+    @application.exception_handler(ValidationError)
+    async def pydantic_validation_handler(request: Request, exc: ValidationError):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=422,
+            content=problem_body(
+                request, 422, "VALIDATION_ERROR", "Validation error", "The request failed validation."
+            ),
+            media_type="application/problem+json",
+        )
+
+    @application.middleware("http")
+    async def request_id_middleware(request: Request, call_next):
+        request.state.request_id = request.headers.get("X-Request-ID", str(uuid4()))
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request.state.request_id
+        return response
+
+    @application.get("/health")
+    def health() -> dict:
+        return {"status": "ok"}
+
+    @application.get("/ready")
+    def ready() -> dict:
+        return {"status": "ready"}
+
+    application.include_router(api_router, prefix="/api/v1")
+    return application
+
+
+app = create_app()
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        seed_if_empty(db)
+    finally:
+        db.close()

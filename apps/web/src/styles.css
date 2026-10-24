@@ -1,0 +1,288 @@
+:root {
+  --bg: #f4efe6;
+  --bg-deep: #1c1914;
+  --paper: #fffaf3;
+  --ink: #1d1914;
+  --muted: #6b6258;
+  --line: #e4d8c6;
+  --accent: #b23a2f;
+  --accent-dark: #8d2c24;
+  --forest: #2f5d46;
+  --gold: #c48a2b;
+  --ok: #2f5d46;
+  --warn: #9a5b12;
+  --info: #355c7d;
+  --shadow: 0 14px 40px rgba(40, 28, 16, 0.08);
+  --radius: 18px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; min-height: 100%; }
+body {
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #f8e7c8 0%, transparent 50%),
+    radial-gradient(900px 400px at 100% 0%, #ecd4c0 0%, transparent 46%),
+    var(--bg);
+}
+button, input, select, textarea {
+  font: inherit;
+}
+a { color: inherit; }
+
+.shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+.mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: var(--bg-deep);
+  color: #f6ead6;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.brand h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.brand p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.nav a, .nav button.ghost {
+  text-decoration: none;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+.nav a.active {
+  background: var(--bg-deep);
+  color: #f6ead6;
+  border-color: var(--bg-deep);
+}
+
+.hero, .card, .panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.hero {
+  padding: 36px;
+  margin-bottom: 24px;
+  background:
+    linear-gradient(135deg, rgba(28,25,20,0.92), rgba(45,36,28,0.78)),
+    #2b241c;
+  color: #f7ecdc;
+}
+.hero h2 {
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  margin: 0 0 8px;
+  letter-spacing: 0.02em;
+}
+.hero p { margin: 0; max-width: 46ch; color: #e5d6c0; }
+.kicker {
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: #d8b36a;
+  margin-bottom: 10px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.grid.three { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.grid.tables { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+
+.card, .panel { padding: 18px; }
+.card h3, .panel h3 { margin: 0 0 8px; }
+.muted { color: var(--muted); }
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn {
+  border: 0;
+  background: var(--accent);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn.secondary { background: var(--bg-deep); }
+.btn.ok { background: var(--forest); }
+.btn.warn { background: var(--gold); color: #1d1914; }
+.btn.ghost {
+  background: transparent;
+  color: inherit;
+  border: 1px solid currentColor;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #efe4d2;
+}
+.badge.pending { background: #f3deba; color: #7a4b0e; }
+.badge.accepted, .badge.paid, .badge.ready, .badge.served { background: #d7eadc; color: #21563a; }
+.badge.rejected, .badge.cancelled { background: #f3d4d0; color: #8d2c24; }
+.badge.new, .badge.open { background: #dce7f3; color: #27415f; }
+.badge.occupied { background: #ead7c4; color: #6a3b16; }
+
+.table-tile {
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-decoration: none;
+  cursor: pointer;
+}
+.table-tile.OCCUPIED { border-color: #c9a27a; }
+.table-tile.CHECKOUT { border-color: #c48a2b; background: #fff6e6; }
+.table-tile.AVAILABLE { border-color: #c9d7cc; }
+
+.menu-item {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #efe4d2;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+.qty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.qty button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: white;
+  cursor: pointer;
+}
+
+.cart {
+  position: sticky;
+  bottom: 12px;
+  background: var(--bg-deep);
+  color: #f6ead6;
+  padding: 16px 18px;
+  border-radius: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.field input, .field textarea, .field select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.error {
+  background: #f8e1dd;
+  color: #7a241c;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.notice {
+  background: #e7f0e8;
+  color: #21563a;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.ticket {
+  border-left: 6px solid var(--accent);
+}
+.ticket.IN_PROGRESS { border-left-color: var(--gold); }
+.ticket.READY { border-left-color: var(--forest); }
+.stat { font-size: 1.8rem; margin: 0; }
+.login-card {
+  max-width: 420px;
+  margin: 48px auto;
+}
+.staff-chrome {
+  background: var(--bg-deep);
+  color: #f6ead6;
+  padding: 16px 20px;
+}
+.staff-chrome .brand p, .staff-chrome .muted { color: #cbbca8; }
+.staff-chrome .nav a {
+  background: transparent;
+  color: #f6ead6;
+  border-color: #3b342c;
+}
+.staff-chrome .nav a.active {
+  background: #f6ead6;
+  color: var(--bg-deep);
+  border-color: #f6ead6;
+}
+
+@media (max-width: 720px) {
+  .hero { padding: 24px; }
+  .topbar { align-items: flex-start; flex-direction: column; }
+}
