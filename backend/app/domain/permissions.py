@@ -6,7 +6,7 @@ OWNER = {
     "kitchen.read",
     "kitchen.update",
     "bills.issue",
-    "payments.record_cash",
+    "payments.record",
     "menu.manage",
     "tables.manage",
     "reports.read",
@@ -34,7 +34,7 @@ KITCHEN = {
 CASHIER = {
     "orders.read",
     "bills.issue",
-    "payments.record_cash",
+    "payments.record",
     "reports.read",
     "kitchen.read",
 }

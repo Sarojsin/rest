@@ -1,9 +1,10 @@
 from app.models.audit import AuditEvent, OutboxEvent
-from app.models.billing import Bill, BillItem, Payment
+from app.models.billing import Bill, BillItem, Payment, PaymentMethodConfig
 from app.models.identity import Restaurant, RestaurantMembership, RestaurantSettings, User
 from app.models.kitchen import KitchenTicket, KitchenTicketItem
 from app.models.menu import MenuCategory, MenuItem
 from app.models.orders import Order, OrderItem
+from app.models.service_calls import ServiceCall
 from app.models.tables import DiningSession, RestaurantTable, TableQrCode
 
 __all__ = [
@@ -19,10 +20,14 @@ __all__ = [
     "OrderItem",
     "OutboxEvent",
     "Payment",
+    "PaymentMethodConfig",
     "Restaurant",
     "RestaurantMembership",
     "RestaurantSettings",
     "RestaurantTable",
+    "ServiceCall",
     "TableQrCode",
     "User",
 ]
+
+from app.models.orders import OrderRating  # noqa

@@ -95,6 +95,7 @@ class PaymentOut(ORMModel):
     status: str
     amount_minor: int
     currency_code: str
+    note: str = ""
     created_at: datetime
     succeeded_at: datetime | None
 

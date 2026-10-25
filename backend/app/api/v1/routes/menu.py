@@ -42,4 +42,5 @@ def patch_item(
         "name": item.name,
         "status": item.status,
         "current_price_minor": item.current_price_minor,
+        "ingredients_text": item.ingredients_text or "",
     }

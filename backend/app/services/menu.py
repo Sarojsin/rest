@@ -42,6 +42,9 @@ def public_menu(db: Session, restaurant_id: UUID, table: RestaurantTable) -> Pub
                         status=item.status,
                         display_order=item.display_order,
                         image_emoji=item.image_emoji,
+                        image_path=item.image_path or "",
+                        model_path=item.model_path or "",
+                        ingredients_text=item.ingredients_text or "",
                     )
                     for item in sorted(cat.items, key=lambda i: i.display_order)
                     if item.status == "PUBLISHED"
@@ -77,6 +80,9 @@ def staff_menu(db: Session, restaurant_id: UUID) -> list[dict]:
                     "status": item.status,
                     "display_order": item.display_order,
                     "image_emoji": item.image_emoji,
+                    "image_path": item.image_path or "",
+                    "model_path": item.model_path or "",
+                    "ingredients_text": item.ingredients_text or "",
                 }
                 for item in sorted(cat.items, key=lambda i: i.display_order)
             ],
@@ -100,7 +106,10 @@ def create_item(db: Session, restaurant_id: UUID, payload: MenuItemWrite) -> Men
         description=payload.description,
         current_price_minor=payload.current_price_minor,
         status=payload.status,
+        ingredients_text=payload.ingredients_text,
         image_emoji=payload.image_emoji,
+        image_path=payload.image_path,
+        model_path=payload.model_path,
     )
     db.add(item)
     db.commit()

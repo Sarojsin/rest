@@ -1,0 +1,52 @@
+/* ==========================================================================
+   Operations theme — kitchen and cashier
+   High contrast, large targets, minimal decoration, tabular numbers.
+   ========================================================================== */
+
+[data-theme="operations"] {
+  color-scheme: light;
+
+  --bg: #f6f7f6;
+  --surface: #ffffff;
+  --surface-2: #f0f2f1;
+  --surface-3: #e4e7e5;
+  --ink: #111827;
+  --muted: #4b5563;
+  --line: #d6dad7;
+  --line-strong: #aeb5b0;
+
+  --primary: #15803d;
+  --primary-hover: #166534;
+  --on-primary: #ffffff;
+  --primary-soft: #e6f3ea;
+
+  --success: #15803d;
+  --success-soft: #e6f3ea;
+  --warn: #b45309;
+  --warn-soft: #fdf1e0;
+  --danger: #b91c1c;
+  --danger-soft: #fdecec;
+  --info: #1e40af;
+  --info-soft: #e8eefc;
+
+  --nav-bg: #14181a;
+  --nav-ink: #f8fafc;
+  --nav-muted: #a7b0b5;
+  --nav-active-bg: rgba(255, 255, 255, 0.14);
+  --nav-active-ink: #ffffff;
+
+  --focus: #15803d;
+  --shadow-color: rgba(17, 24, 39, 0.1);
+  --shadow-sm: none;
+  --shadow-md: 0 2px 6px rgba(17, 24, 39, 0.08);
+  --shadow-lg: 0 18px 40px rgba(17, 24, 39, 0.2);
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --font-body: var(--font-ui);
+  --font-heading: var(--font-ui);
+  --font-numeric: var(--font-ui);
+}

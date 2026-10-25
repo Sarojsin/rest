@@ -7,7 +7,7 @@ from app.api.deps import Actor, require_permission
 from app.core.errors import AppError
 from app.db.session import get_db
 from app.schemas.common import BillOut, OrderOut
-from app.schemas.staff import CashPaymentRequest, CreateWaiterOrderRequest, RejectOrderRequest
+from app.schemas.staff import RecordPaymentRequest, CreateWaiterOrderRequest, RejectOrderRequest
 from app.services import billing as billing_service
 from app.services import orders as order_service
 
@@ -108,15 +108,21 @@ def issue_bill(
     return billing_service.bill_to_out(bill)
 
 
-@router.post("/bills/{bill_id}/cash-payments", response_model=BillOut)
-def record_cash(
+@router.post("/bills/{bill_id}/payments", response_model=BillOut)
+def record_payment(
     bill_id: UUID,
-    payload: CashPaymentRequest,
-    actor: Actor = Depends(require_permission("payments.record_cash")),
+    payload: RecordPaymentRequest,
+    actor: Actor = Depends(require_permission("payments.record")),
     db: Session = Depends(get_db),
     idempotency_key: str = Depends(_idempotency_key),
 ) -> BillOut:
-    bill = billing_service.record_cash_payment(
-        db, actor.membership, bill_id, payload.amount_minor, idempotency_key
+    bill = billing_service.record_payment(
+        db,
+        actor.membership,
+        bill_id,
+        method_id=payload.method_id,
+        amount_minor=payload.amount_minor,
+        note=payload.note,
+        idempotency_key=idempotency_key,
     )
     return billing_service.bill_to_out(bill)

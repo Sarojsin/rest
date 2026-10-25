@@ -403,3 +403,38 @@ def list_orders(
     if source:
         stmt = stmt.where(Order.source == source)
     return list(db.scalars(stmt).unique().all())
+
+
+def cancel_public_order(db: Session, status_token: str, reason: str) -> Order:
+    order = get_public_order_status(db, status_token)
+    if order.status not in {"PENDING_CONFIRMATION", "ACCEPTED"}:
+        raise AppError(409, "ORDER_NOT_CANCELLABLE", "Order state conflict", "This order cannot be cancelled right now.")
+    order.status = "CANCELLED"
+    order.cancelled_at = datetime.now(UTC)
+    order.rejection_reason_code = "CUSTOMER_REQUEST"
+    order.rejection_note = reason or "Cancelled by customer"
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def rate_public_order(db: Session, status_token: str, rating: int, comment: str) -> dict:
+    from app.models.orders import OrderRating
+    from app.core.security import hash_token
+
+    order = get_public_order_status(db, status_token)
+    existing = db.query(OrderRating).filter(OrderRating.order_id == order.id).first()
+    if existing:
+        raise AppError(409, "ALREADY_RATED", "Conflict", "This order has already been rated.")
+    r = OrderRating(
+        restaurant_id=order.restaurant_id,
+        order_id=order.id,
+        rating=rating,
+        comment=comment or "",
+        rated_by_token_hash=hash_token(status_token),
+    )
+    db.add(r)
+    db.commit()
+    db.refresh(r)
+    return {"rating_id": str(r.id), "rating": r.rating}

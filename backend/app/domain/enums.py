@@ -84,6 +84,23 @@ class PaymentStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
-class PaymentMethod(StrEnum):
+class PaymentMethodKind(StrEnum):
+    """What a configured payment method does at checkout.
+
+    CASH is recorded directly by authorized staff. QR shows an owner-uploaded
+    static QR image for the customer to scan; displaying it never settles the
+    bill — staff must verify the received amount before recording payment.
+    """
+
     CASH = "CASH"
-    ONLINE_PROVIDER = "ONLINE_PROVIDER"
+    QR = "QR"
+
+
+class ServiceCallKind(StrEnum):
+    GUEST = "GUEST"
+    KITCHEN = "KITCHEN"
+
+
+class ServiceCallStatus(StrEnum):
+    REQUESTED = "REQUESTED"
+    ACKNOWLEDGED = "ACKNOWLEDGED"

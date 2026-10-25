@@ -30,5 +30,8 @@ class MenuItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="PUBLISHED")
     display_order: Mapped[int] = mapped_column(Integer, default=0)
     image_emoji: Mapped[str] = mapped_column(String(8), default="")
+    image_path: Mapped[str] = mapped_column(String(255), default="")
+    model_path: Mapped[str] = mapped_column(String(255), default="")
+    ingredients_text: Mapped[str] = mapped_column(Text, default="")
 
     category: Mapped[MenuCategory] = relationship(back_populates="items")

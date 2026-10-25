@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import OrderItemIn
+from app.schemas.common import ORMModel, OrderItemIn
 
 
 class TableOut(BaseModel):
@@ -40,11 +40,57 @@ class KitchenItemStatusRequest(BaseModel):
     status: str
 
 
-class CashPaymentRequest(BaseModel):
+class RecordPaymentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    method_id: UUID
     amount_minor: int = Field(ge=1)
     note: str = Field(default="", max_length=120)
+
+
+class PaymentMethodOut(BaseModel):
+    id: UUID
+    label: str
+    kind: str
+    account_hint: str
+    instructions: str
+    is_active: bool
+    display_order: int
+    has_qr_image: bool
+    qr_image_url: str | None = None
+
+
+class PaymentMethodWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=80)
+    kind: str = Field(pattern=r"^(CASH|QR)$")
+    account_hint: str = Field(default="", max_length=160)
+    instructions: str = Field(default="", max_length=500)
+    is_active: bool = True
+    display_order: int = Field(default=0, ge=0, le=1000)
+
+
+class PaymentMethodPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str | None = Field(default=None, min_length=1, max_length=80)
+    account_hint: str | None = Field(default=None, max_length=160)
+    instructions: str | None = Field(default=None, max_length=500)
+    is_active: bool | None = None
+    display_order: int | None = Field(default=None, ge=0, le=1000)
+
+
+class ServiceCallOut(BaseModel):
+    id: UUID
+    kind: str = "GUEST"
+    table_id: UUID
+    table_display_name: str
+    ticket_number: int | None = None
+    items_summary: str = ""
+    status: str
+    requested_at: datetime
+    acknowledged_at: datetime | None
 
 
 class MenuItemWrite(BaseModel):
@@ -55,7 +101,18 @@ class MenuItemWrite(BaseModel):
     current_price_minor: int = Field(ge=0)
     category_id: UUID
     status: str = "PUBLISHED"
+    ingredients_text: str = Field(default="", max_length=500)
     image_emoji: str = Field(default="", max_length=8)
+    image_path: str = Field(
+        default="",
+        max_length=255,
+        pattern=r"^$|^/menu/food/[A-Za-z0-9._-]+\.(webp|jpg|jpeg|png|avif)$",
+    )
+    model_path: str = Field(
+        default="",
+        max_length=255,
+        pattern=r"^$|^/menu/models/[A-Za-z0-9._-]+\.glb$",
+    )
 
 
 class MenuItemPatch(BaseModel):
@@ -65,7 +122,18 @@ class MenuItemPatch(BaseModel):
     description: str | None = None
     current_price_minor: int | None = Field(default=None, ge=0)
     status: str | None = None
+    ingredients_text: str | None = Field(default=None, max_length=500)
     image_emoji: str | None = None
+    image_path: str | None = Field(
+        default=None,
+        max_length=255,
+        pattern=r"^$|^/menu/food/[A-Za-z0-9._-]+\.(webp|jpg|jpeg|png|avif)$",
+    )
+    model_path: str | None = Field(
+        default=None,
+        max_length=255,
+        pattern=r"^$|^/menu/models/[A-Za-z0-9._-]+\.glb$",
+    )
 
 
 class RestaurantOut(BaseModel):
@@ -78,7 +146,7 @@ class RestaurantOut(BaseModel):
     qr_ordering_enabled: bool
 
 
-class AuditEventOut(BaseModel):
+class AuditEventOut(ORMModel):
     id: UUID
     action: str
     entity_type: str

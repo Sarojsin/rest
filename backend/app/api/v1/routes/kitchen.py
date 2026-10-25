@@ -28,3 +28,12 @@ def update_item_status(
     db: Session = Depends(get_db),
 ) -> KitchenTicketOut:
     return kitchen_service.transition_kitchen_item(db, actor.membership, item_id, payload.status)
+
+
+@router.post("/kitchen/tickets/{ticket_id}/call-waiter", response_model=KitchenTicketOut)
+def call_waiter(
+    ticket_id: UUID,
+    actor: Actor = Depends(require_permission("kitchen.update")),
+    db: Session = Depends(get_db),
+) -> KitchenTicketOut:
+    return kitchen_service.mark_ticket_ready_and_call_waiter(db, actor.membership, ticket_id)

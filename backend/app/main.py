@@ -14,6 +14,8 @@ from app.db.session import SessionLocal, engine
 from app.seed import seed_if_empty
 
 import app.models  # noqa: F401
+from pathlib import Path
+from sqlalchemy.exc import OperationalError
 
 
 def create_app() -> FastAPI:
@@ -76,9 +78,46 @@ app = create_app()
 
 @app.on_event("startup")
 def on_startup() -> None:
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
-    try:
-        seed_if_empty(db)
-    finally:
-        db.close()
+    if settings.app_env == "production":
+        # In production, schema shape is owned by Alembic, not create_all.
+        # Fail fast when the deployed database is missing migrations instead of
+        # silently mutating it, and warn when it has drifted from the models.
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+        from sqlalchemy import text
+
+        from app.db.session import SessionLocal as _SessionLocal
+        from app.db.session import engine as _engine
+
+        alembic_root = Path(__file__).resolve().parents[1] / "alembic.ini"
+        script = ScriptDirectory.from_config(Config(str(alembic_root)))
+        head = script.get_current_head()
+        db_check = SessionLocal()
+        try:
+            try:
+                stamp = db_check.execute(text("SELECT version_num FROM alembic_version")).scalar_one_or_none()
+            except OperationalError as exc:
+                raise RuntimeError(
+                    "Database is not migrated (alembic_version not found). Run: alembic upgrade head"
+                ) from exc
+            if stamp != head:
+                raise RuntimeError(
+                    f"Database migration {stamp!r} is not head {head!r}. Run: alembic upgrade head"
+                )
+        finally:
+            db_check.close()
+        # Verify the connection the server will actually use, then seed reference data.
+        _ = _engine  # fail fast early if engine cannot even be constructed
+        db = _SessionLocal()
+        try:
+            seed_if_empty(db)
+        finally:
+            db.close()
+    else:
+        # Development and tests keep the fast create_all bootstrap.
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        try:
+            seed_if_empty(db)
+        finally:
+            db.close()

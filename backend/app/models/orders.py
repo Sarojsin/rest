@@ -57,3 +57,16 @@ class OrderItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     special_instructions: Mapped[str] = mapped_column(Text, default="")
 
     order: Mapped[Order] = relationship(back_populates="items")
+
+
+class OrderRating(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "order_ratings"
+    __table_args__ = (UniqueConstraint("order_id", name="uq_order_rating_order_id"),)
+
+    restaurant_id: Mapped[UUID] = mapped_column(ForeignKey("restaurants.id"), nullable=False)
+    order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    comment: Mapped[str] = mapped_column(String(280), default="")
+    rated_by_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    order: Mapped[Order] = relationship()

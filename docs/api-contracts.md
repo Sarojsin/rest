@@ -65,8 +65,10 @@ Recommended status semantics:
 
 ### 2.2 Public customer QR website
 
-- `GET /public/qr/{qr_token}/menu` — resolve active QR token; return restaurant name, table display label, published categories/items/options, current menu version, and only public settings.
+- `GET /public/qr/{qr_token}/menu` — resolve active QR token; return restaurant name, table display label, published categories/items/options (including display-only `ingredients_text`), current menu version, and only public settings.
 - `POST /public/qr/{qr_token}/orders` — submit a pending QR order; require an idempotency key; backend validates table/token, menu publication, quantities, options, availability, and prices; return `PENDING_CONFIRMATION` plus a one-time/read-only status credential or safe status URL.
+- `POST /public/qr/{qr_token}/service-calls` — guest presses "Call waiter". Deduplicated server-side: while a `REQUESTED` call is open for the table, repeated taps return the existing call (`deduplicated: true`) instead of creating duplicates. No customer identity is recorded.
+- `GET /public/qr/{qr_token}/service-calls/latest` — read-only, QR-token-scoped status so the guest can see whether the waiter acknowledged the request. Discloses only the latest call's status/timestamps for that table.
 - `POST /public/order-status-sessions` — exchange a one-time order-status credential for a short-lived, limited session if this safer pattern is selected.
 - `GET /public/orders/{status_token}` — minimal read-only status, permitted items/summary, and safe status timestamps; never expose staff notes, other orders, internal audit, or broad bill details.
 - `POST /public/orders/{status_token}/cancel-request` — optional only if customer cancellation is supported; it requests cancellation and does not bypass staff/kitchen rules.
@@ -95,13 +97,18 @@ Public endpoints require per-IP/token/table rate limits, abuse monitoring, stric
 
 ### 2.5 Menu
 
-- `GET /menu` — staff view including drafts/unavailable items where permitted.
+- `GET /menu` — staff view including drafts/unavailable items where permitted, and each item's `ingredients_text`.
 - `POST /menu/categories`, `PATCH /menu/categories/{id}`.
 - `POST /menu/items`, `PATCH /menu/items/{id}`, `POST /menu/items/{id}/availability`.
 - `POST /menu/publish` — publish a consistent menu revision.
 - `POST /menu/items/{id}/image-upload` — issue constrained upload instructions or handle validated upload; never accept arbitrary remote URLs as trusted images.
 
-All write routes require menu permissions. Customer menu responses show only currently public items and do not reveal internal cost, stock, or notes.
+All write routes require menu permissions. Customer menu responses show only currently public items, their display-only `ingredients_text`, and do not reveal internal cost, stock, or notes.
+
+### 2.5b Service calls (waiter assistance)
+
+- `GET /service-calls?status=REQUESTED` — tenant-scoped list; read permission `orders.read`; includes `table_display_name` so staff can find the table. Polling is acceptable (the architecture keeps real-time transport out of durable storage).
+- `POST /service-calls/{id}/acknowledge` — waiter confirms they are attending; permission `tables.manage`; idempotent (`ACKNOWLEDGED` re-acknowledge returns the same state). Requires the append-only audit trail like other staff actions.
 
 ### 2.6 Orders and kitchen
 
@@ -113,7 +120,7 @@ All write routes require menu permissions. Customer menu responses show only cur
 - `POST /orders/{id}/cancel` — policy-controlled cancellation; accepted orders may require manager confirmation or a separate kitchen action.
 - `POST /orders/{id}/amendments` — explicit post-submission amendment flow if supported; preserve original values and kitchen visibility.
 - `GET /kitchen/tickets` — kitchen-scoped queue/status view.
-- `POST /kitchen/tickets/{id}/start` / `POST /kitchen/tickets/{id}/ready` — only if ticket-level transitions are sufficient.
+- `POST /kitchen/tickets/{id}/call-waiter` — kitchen signals a ticket is done: forces open items to `READY` and raises a `KITCHEN` service call (idempotent while a `REQUESTED` call is open for the ticket); requires `kitchen.update`.
 - `POST /kitchen/ticket-items/{id}/status` — item-level preparation updates, if required by service workflow.
 
 Use domain operations, not generic `PATCH {status: ...}`. The server validates allowed current-to-next transitions and permission for each transition.

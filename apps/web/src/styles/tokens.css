@@ -1,0 +1,108 @@
+/* ==========================================================================
+   Design tokens
+   Shared scales and semantic defaults. Theme files override colors only.
+   ========================================================================== */
+
+:root {
+  /* Type roles ---------------------------------------------------------- */
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-ui: "Segoe UI", Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.85rem;
+  --text-base: 0.95rem;
+  --text-md: 1.05rem;
+  --text-lg: 1.3rem;
+  --text-xl: 1.6rem;
+  --text-2xl: clamp(1.7rem, 3.2vw, 2.4rem);
+  --text-3xl: clamp(2rem, 5vw, 3.2rem);
+
+  /* Spacing (4px base) -------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+
+  /* Shape --------------------------------------------------------------- */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* Depth --------------------------------------------------------------- */
+  --shadow-sm: 0 1px 2px rgba(20, 20, 20, 0.05);
+  --shadow-md: 0 8px 24px rgba(20, 20, 20, 0.08);
+  --shadow-lg: 0 20px 50px rgba(20, 20, 20, 0.16);
+
+  /* Layering ------------------------------------------------------------ */
+  --z-dock: 60;
+  --z-backdrop: 70;
+  --z-sheet: 71;
+  --z-popover: 80;
+  --z-toast: 90;
+
+  /* Motion -------------------------------------------------------------- */
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* Layout -------------------------------------------------------------- */
+  --shell-max: 1140px;
+  --tap: 44px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Neutral status semantics shared by every theme ---------------------- */
+  --status-neutral: #6b7280;
+  --status-neutral-soft: #f1f2f4;
+}
+
+/* Customer theme is the document default so public pages inherit it without
+   an explicit wrapper. Every other theme overrides on a container. */
+:root,
+[data-theme="customer"] {
+  color-scheme: light;
+
+  --bg: #faf7f2;
+  --surface: #ffffff;
+  --surface-2: #f4efe7;
+  --surface-3: #efe7db;
+  --ink: #242424;
+  --muted: #6b6b6b;
+  --line: #e8e2d9;
+  --line-strong: #d8cfc1;
+
+  --primary: #d96535;
+  --primary-hover: #c4552a;
+  --on-primary: #ffffff;
+  --primary-soft: #fbece5;
+
+  --success: #27845b;
+  --success-soft: #e3f3ea;
+  --warn: #b45309;
+  --warn-soft: #fdf1e0;
+  --danger: #b42318;
+  --danger-soft: #fcecea;
+  --info: #355c7d;
+  --info-soft: #e8eff5;
+
+  --nav-bg: #242424;
+  --nav-ink: #faf7f2;
+  --nav-muted: #c9c1b6;
+  --nav-active-bg: #faf7f2;
+  --nav-active-ink: #242424;
+
+  --focus: #d96535;
+  --shadow-color: rgba(36, 36, 36, 0.1);
+
+  --font-body: var(--font-ui);
+  --font-heading: var(--font-display);
+  --font-numeric: var(--font-ui);
+}

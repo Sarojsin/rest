@@ -107,6 +107,17 @@ Invariants:
 - When accepting a QR order, attach it to the active session or atomically create a new one if policy allows. Two concurrent acceptances must not create two active sessions.
 - The business-day/session-number policy remains configurable and must be confirmed.
 
+### 3.4 `service_calls`
+
+Guest "Call waiter" requests from the QR website, and kitchen "food ready for pickup" signals from the kitchen screen. Candidate fields: `id`, `restaurant_id`, `kind` (`GUEST`, `KITCHEN`), `table_id`, `kitchen_ticket_id` (nullable, set for `KITCHEN` calls), `detail` (free-text snapshot of what the call is about, e.g. the pickup summary), `status` (`REQUESTED`, `ACKNOWLEDGED`), `created_by_membership_id` (nullable, kitchen actor for `KITCHEN` calls), `created_at`, `updated_at`, `acknowledged_at`, `acknowledged_by_membership_id` (nullable).
+
+Invariants:
+
+- Requests are scoped to the QR-owned table only; no customer identity is stored.
+- While a `REQUESTED` call of the same `kind` is open (per table for `GUEST`, per ticket for `KITCHEN`), duplicates are collapsed (server-side dedupe returns the existing call). A partial unique index on active `REQUESTED` calls per table/kind is acceptable if dedupe is later moved into the DB layer.
+- Acknowledgement is a staff action requiring `tables.manage` and an append-only audit entry; acknowledge is idempotent for already-`ACKNOWLEDGED` rows.
+- `KITCHEN` calls are created by `kitchen.update` holders via the ticket call-waiter domain operation, which in one transaction forces the ticket's open items to `READY`, records audit and an outbox `service_call.requested` event.
+
 ## 4. Menu catalog
 
 ### 4.1 `menu_categories`
@@ -117,7 +128,9 @@ Unique normalized name per restaurant may be appropriate if the restaurant does 
 
 ### 4.2 `menu_items`
 
-Fields: `id`, `restaurant_id`, `category_id`, `sku` (optional), `name`, `description`, `image_object_key` (optional), `current_price_minor`, `currency_code`, `status` (`DRAFT`, `PUBLISHED`, `UNAVAILABLE`, `ARCHIVED`), `is_vegetarian`/dietary tags only if validated, `display_order`, timestamps.
+Fields: `id`, `restaurant_id`, `category_id`, `sku` (optional), `name`, `description`, `image_object_key` (optional), `current_price_minor`, `currency_code`, `status` (`DRAFT`, `PUBLISHED`, `UNAVAILABLE`, `ARCHIVED`), `is_vegetarian`/dietary tags only if validated, `display_order`, `ingredients_text` (display-only, max 500 chars), timestamps.
+
+`ingredients_text` is a guest-facing free-text display of ingredients/allergens (including an explicit "Contains:" line when known). It is presentation text, not structured allergen data; do not derive machine-readable allergens or inventory consumption from it.
 
 Rules:
 

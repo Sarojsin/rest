@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, hash_token
 from app.models.identity import Restaurant, RestaurantMembership, RestaurantSettings, User
+from app.models.billing import PaymentMethodConfig
 from app.models.menu import MenuCategory, MenuItem
 from app.models.tables import RestaurantTable, TableQrCode
 
@@ -25,41 +26,80 @@ STAFF = [
 
 MENU = [
     (
-        "Starters",
-        "Shareable plates to begin",
+        "Momo",
+        "Hand-pleated Himalayan dumplings",
         [
-            ("Harbor Chowder", "Clam chowder with fennel and rye crumbs", 900, "S"),
-            ("Citrus Olives", "Warm olives, orange, rosemary", 600, "O"),
-            ("Garden Salad", "Seasonal greens, lemon vinaigrette", 800, "G"),
+            (
+                "Steam Momo (10 pcs)",
+                "Classic steamed dumplings with tomato-sesame dip",
+                25000,
+                "🥟",
+                "/menu/food/steam-momo.webp",
+                "/menu/models/steam-momo.glb",
+                "Wheat flour, cabbage, spring onion, garlic, soy sauce. "
+                "Contains: gluten, soy, sesame",
+            ),
+            (
+                "Jhol Momo (10 pcs)",
+                "Dumplings in a spicy, tangy jhol broth",
+                28000,
+                "🍜",
+                "/menu/food/jhol-momo.jpg",
+                "/menu/models/bowl-soup.glb",
+                "Wheat flour dumplings, tomato, sesame seeds, cilantro, chili oil. "
+                "Contains: gluten, soy, sesame",
+            ),
         ],
     ),
     (
-        "Mains",
-        "Kitchen classics",
+        "Chowmein",
+        "Wok-tossed noodles",
         [
-            ("Grilled Sea Bass", "Charred lemon, herb oil, potatoes", 2400, "B"),
-            ("Herb Roast Chicken", "Pan jus, market vegetables", 1900, "C"),
-            ("Mushroom Risotto", "Arborio rice, parmesan, thyme", 1700, "R"),
-            ("Harbor Burger", "Cheddar, pickles, fries", 1600, "H"),
+            (
+                "Veg Chowmein",
+                "Stir-fried noodles with seasonal vegetables",
+                22000,
+                "🥬",
+                "/menu/food/veg-chowmein.webp",
+                "/menu/models/noodles-gl.glb",
+                "Wheat noodles, cabbage, carrot, bell pepper, soy sauce. Contains: gluten, soy",
+            ),
+            (
+                "Chicken Chowmein",
+                "Stir-fried noodles with chicken and crunchy greens",
+                26000,
+                "🍜",
+                "/menu/food/chicken-chowmein.webp",
+                "",
+                "Wheat noodles, chicken, egg, spring onion, soy sauce. Contains: gluten, egg, soy",
+            ),
         ],
     ),
     (
-        "Drinks",
-        "Soft drinks and house pours",
+        "Grills",
+        "From the charcoal",
         [
-            ("Sparkling Water", "Bottle", 350, "W"),
-            ("House Lemonade", "Mint and citrus", 450, "L"),
-            ("Espresso", "Double shot", 400, "E"),
+            (
+                "Chicken Leg Piece (4 pcs)",
+                "Marinated grilled drumsticks with salad and dipping sauce",
+                38000,
+                "🍗",
+                "/menu/food/chicken-leg-piece.jpg",
+                "",
+                "Chicken drumsticks, yogurt-spice marinade, lettuce salad, mint dip. "
+                "Contains: dairy, mustard",
+            ),
         ],
     ),
-    (
-        "Desserts",
-        "Finish the table",
-        [
-            ("Olive Oil Cake", "Citrus glaze", 800, "K"),
-            ("Chocolate Pot", "Sea salt, cream", 850, "P"),
-        ],
-    ),
+]
+
+# Starter tenders: cash works out of the box; QR methods stay disabled at
+# checkout until the owner uploads the merchant QR image.
+DEFAULT_PAYMENT_METHODS = [
+    ("Cash", "CASH", "", "Collect cash and count the tender before recording.", 0),
+    ("eSewa", "QR", "eSewa merchant", "Scan with the eSewa app and pay the exact bill total.", 1),
+    ("IME Pay", "QR", "IME Pay merchant", "Scan with the IME Pay app and pay the exact bill total.", 2),
+    ("Bank Transfer", "QR", "", "Transfer to our bank account and show the receipt.", 3),
 ]
 
 
@@ -71,8 +111,8 @@ def seed_if_empty(db: Session) -> None:
     restaurant = Restaurant(
         name="Harbor Table",
         slug="harbor-table",
-        timezone="America/Los_Angeles",
-        currency_code="USD",
+        timezone="Asia/Kathmandu",
+        currency_code="NPR",
         status="ACTIVE",
     )
     db.add(restaurant)
@@ -80,8 +120,8 @@ def seed_if_empty(db: Session) -> None:
     db.add(
         RestaurantSettings(
             restaurant_id=restaurant.id,
-            locale="en-US",
-            tax_rate_bps=1000,
+            locale="en-NP",
+            tax_rate_bps=1300,
             receipt_header="Harbor Table",
             receipt_footer="Thank you for dining with us",
             qr_ordering_enabled=True,
@@ -139,7 +179,10 @@ def seed_if_empty(db: Session) -> None:
         )
         db.add(category)
         db.flush()
-        for item_index, (item_name, item_desc, price, emoji) in enumerate(items, start=1):
+        for item_index, item in enumerate(items, start=1):
+            if len(item) < 7:
+                item = (*item, "", "")  # pad model_path/ingredients_text
+            item_name, item_desc, price, emoji, image_path, model_path, ingredients = item
             db.add(
                 MenuItem(
                     restaurant_id=restaurant.id,
@@ -147,10 +190,26 @@ def seed_if_empty(db: Session) -> None:
                     name=item_name,
                     description=item_desc,
                     current_price_minor=price,
-                    currency_code="USD",
+                    currency_code="NPR",
                     status="PUBLISHED",
                     display_order=item_index,
                     image_emoji=emoji,
+                    image_path=image_path,
+                    model_path=model_path,
+                    ingredients_text=ingredients,
                 )
             )
+
+    for label, kind, account_hint, instructions, display_order in DEFAULT_PAYMENT_METHODS:
+        db.add(
+            PaymentMethodConfig(
+                restaurant_id=restaurant.id,
+                label=label,
+                kind=kind,
+                account_hint=account_hint,
+                instructions=instructions,
+                is_active=True,
+                display_order=display_order,
+            )
+        )
     db.commit()

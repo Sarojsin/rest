@@ -41,7 +41,11 @@ export function newIdempotencyKey(): string {
 export function formatMoney(amountMinor: number, currency = "USD"): string {
   const value = amountMinor / 100;
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
+    return new Intl.NumberFormat(currency === "NPR" ? "en-IN" : "en-US", {
+      style: "currency",
+      currency,
+      currencyDisplay: currency === "NPR" ? "narrowSymbol" : undefined,
+    }).format(value);
   } catch {
     return `${currency} ${value.toFixed(2)}`;
   }
@@ -66,14 +70,16 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
-  if (options.body && !headers.has("Content-Type")) {
+  if (typeof options.body === "string" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (options.idempotencyKey) headers.set("Idempotency-Key", options.idempotencyKey);
 
-  const response = await fetch(path, { ...options, headers });
+  // Never replay a cached GET: prices/availability and order state must be fresh
+  // or the kitchen and the customer disagree about reality.
+  const response = await fetch(path, { cache: "no-store", ...options, headers });
   if (!response.ok) {
     throw await parseError(response);
   }
@@ -105,6 +111,9 @@ export type MenuItem = {
   status: string;
   display_order: number;
   image_emoji: string;
+  image_path?: string;
+  model_path?: string;
+  ingredients_text?: string;
   category_id?: string;
 };
 
@@ -207,8 +216,21 @@ export type Payment = {
   status: string;
   amount_minor: number;
   currency_code: string;
+  note: string;
   created_at: string;
   succeeded_at: string | null;
+};
+
+export type PaymentMethodConfig = {
+  id: string;
+  label: string;
+  kind: string; // "CASH" | "QR"
+  account_hint: string;
+  instructions: string;
+  is_active: boolean;
+  display_order: number;
+  has_qr_image: boolean;
+  qr_image_url: string | null;
 };
 
 export type Bill = {
@@ -259,4 +281,24 @@ export type PublicOrderStatus = {
   items: { name: string; quantity: number; line_total_minor: number }[];
   total_minor: number;
   currency_code: string;
+};
+
+export type PublicServiceCall = {
+  id: string;
+  status: string;
+  requested_at: string;
+  acknowledged_at: string | null;
+  deduplicated: boolean;
+};
+
+export type ServiceCall = {
+  id: string;
+  kind: string; // "GUEST" (customer signal) | "KITCHEN" (food ready for pickup)
+  table_id: string;
+  table_display_name: string;
+  ticket_number: number | null;
+  items_summary: string;
+  status: string;
+  requested_at: string;
+  acknowledged_at: string | null;
 };

@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     access_token_minutes: int = 480
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     tax_rate_bps: int = 1000
+    uploads_dir: str = "./data/uploads"
+    max_qr_image_bytes: int = 2_097_152  # 2 MB
 
     @property
     def cors_origin_list(self) -> list[str]:

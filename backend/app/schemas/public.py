@@ -14,6 +14,9 @@ class PublicMenuItem(BaseModel):
     status: str
     display_order: int
     image_emoji: str
+    image_path: str = Field(default="", max_length=255)
+    model_path: str = Field(default="", max_length=255)
+    ingredients_text: str = Field(default="", max_length=500)
 
 
 class PublicMenuCategory(BaseModel):
@@ -57,3 +60,11 @@ class PublicOrderStatusOut(BaseModel):
     items: list[dict]
     total_minor: int
     currency_code: str
+
+
+class PublicServiceCallOut(BaseModel):
+    id: UUID
+    status: str
+    requested_at: str
+    acknowledged_at: str | None
+    deduplicated: bool = False

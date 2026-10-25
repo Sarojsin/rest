@@ -5,8 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.errors import AppError
-from app.domain.enums import BillStatus, DiningSessionStatus, OrderStatus, PaymentMethod, PaymentStatus
-from app.models.billing import Bill, BillItem, Payment
+from app.domain.enums import BillStatus, DiningSessionStatus, OrderStatus, PaymentMethodKind, PaymentStatus
+from app.models.billing import Bill, BillItem, Payment, PaymentMethodConfig
 from app.models.identity import RestaurantMembership
 from app.models.orders import Order
 from app.models.tables import DiningSession
@@ -149,11 +149,13 @@ def issue_bill(db: Session, membership: RestaurantMembership, session_id: UUID) 
     return _load_bill(db, membership.restaurant_id, bill.id)
 
 
-def record_cash_payment(
+def record_payment(
     db: Session,
     membership: RestaurantMembership,
     bill_id: UUID,
+    method_id: UUID,
     amount_minor: int,
+    note: str,
     idempotency_key: str,
 ) -> Bill:
     existing_payment = db.scalar(
@@ -165,6 +167,28 @@ def record_cash_payment(
     if existing_payment is not None:
         return _load_bill(db, membership.restaurant_id, existing_payment.bill_id)
 
+    method = db.scalar(
+        select(PaymentMethodConfig).where(
+            PaymentMethodConfig.id == method_id,
+            PaymentMethodConfig.restaurant_id == membership.restaurant_id,
+        )
+    )
+    if method is None:
+        raise AppError(
+            404, "PAYMENT_METHOD_NOT_FOUND", "Not found", "Payment method was not found."
+        )
+    if not method.is_active:
+        raise AppError(
+            409, "METHOD_UNAVAILABLE", "Method unavailable", "This payment method is not active."
+        )
+    if method.kind == PaymentMethodKind.QR and not (method.qr_image_name and method.qr_image_ext):
+        raise AppError(
+            422,
+            "METHOD_QR_IMAGE_MISSING",
+            "QR image missing",
+            "Ask the owner to upload a QR image before using this method.",
+        )
+
     bill = _load_bill(db, membership.restaurant_id, bill_id)
     if bill.status not in {BillStatus.ISSUED, BillStatus.PARTIALLY_PAID}:
         raise AppError(409, "BILL_NOT_PAYABLE", "Bill not payable", "Issue the bill before recording payment.")
@@ -173,22 +197,24 @@ def record_cash_payment(
             422,
             "AMOUNT_EXCEEDS_BALANCE",
             "Amount exceeds balance",
-            "Cash tender cannot exceed the outstanding balance.",
+            "Payment cannot exceed the outstanding balance.",
         )
 
     now = datetime.now(UTC)
     payment = Payment(
         restaurant_id=membership.restaurant_id,
         bill_id=bill.id,
-        method=PaymentMethod.CASH,
+        method=method.label,
         status=PaymentStatus.SUCCEEDED,
         amount_minor=amount_minor,
         currency_code=bill.currency_code,
+        note=note,
         idempotency_key=idempotency_key,
         initiated_by_membership_id=membership.id,
         succeeded_at=now,
     )
     db.add(payment)
+    db.flush()
     bill.paid_minor += amount_minor
     bill.balance_due_minor = max(bill.total_minor - bill.paid_minor, 0)
     if bill.balance_due_minor == 0:
@@ -205,12 +231,20 @@ def record_cash_payment(
     record_audit(
         db,
         restaurant_id=membership.restaurant_id,
-        action="payments.record_cash",
+        action="payments.record",
         entity_type="payment",
         entity_id=payment.id,
         actor_user_id=membership.user_id,
         actor_membership_id=membership.id,
-        detail=f"amount={amount_minor}",
+        detail=f"method={method.label};amount={amount_minor};bill={bill.id}",
+    )
+    record_outbox(
+        db,
+        restaurant_id=membership.restaurant_id,
+        event_type="payment.recorded",
+        aggregate_type="payment",
+        aggregate_id=payment.id,
+        payload=f'{{"bill_id": "{bill.id}", "method": "{method.label}", "amount_minor": {amount_minor}}}',
     )
     db.commit()
     return _load_bill(db, membership.restaurant_id, bill.id)
