@@ -1,0 +1,1 @@
+{"name":"restaurant-management","private":true,"packageManager":"pnpm@9.12.0","scripts":{"dev":"echo use make dev or run apps separately","lint":"echo lint placeholder","test":"echo test placeholder","typecheck":"echo typecheck placeholder"}}
