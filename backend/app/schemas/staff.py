@@ -19,6 +19,29 @@ class TableOut(BaseModel):
     qr_token: str | None = None
 
 
+# Backed by `_validate_code` in services/tables.py: the raw input is trimmed and
+# uppercased there so " t7 " still works; the stored value matches this pattern.
+_TABLE_CODE_MAX = 32
+
+
+class TableCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    table_code: str = Field(min_length=1, max_length=_TABLE_CODE_MAX)
+    display_name: str = Field(min_length=1, max_length=80)
+    seating_capacity: int | None = Field(default=None, ge=1, le=40)
+    sort_order: int | None = None
+
+
+class TableUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    seating_capacity: int | None = Field(default=None, ge=1, le=40)
+    sort_order: int | None = Field(default=None, ge=0, le=1000)
+    status: str | None = Field(default=None, pattern=r"^(ACTIVE|OUT_OF_SERVICE)$")
+
+
 class CreateWaiterOrderRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -9,6 +9,7 @@ OWNER = {
     "payments.record",
     "menu.manage",
     "tables.manage",
+    "tables.configure",
     "reports.read",
     "staff.manage",
     "settings.manage",

@@ -82,7 +82,7 @@ export default function WaiterTablesScreen() {
               key={table.id}
               table={table}
               width={cardWidth}
-              onPress={() => router.push(`/waiter/table/${table.id}`)}
+              onPress={() => router.push(`/waiter/order/${table.id}`)}
             />
           ))}
         </View>

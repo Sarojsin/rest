@@ -1,1 +1,1 @@
-﻿{"name":"@rest/api-client","version":"0.1.0","main":"index.ts","types":"index.ts","scripts":{"generate":"echo generate types from openapi"}}
+{"name":"@rest/api-client","version":"0.1.0","main":"index.ts","types":"index.ts","scripts":{"generate":"echo generate types from openapi"}}

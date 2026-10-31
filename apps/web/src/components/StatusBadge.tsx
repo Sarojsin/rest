@@ -11,6 +11,7 @@ const LABELS: Record<string, string> = {
   SERVED: "Served",
   PUBLISHED: "Published",
   UNAVAILABLE: "Unavailable",
+  OUT_OF_SERVICE: "Out of service",
   DRAFT: "Draft",
   ARCHIVED: "Archived",
   AVAILABLE: "Available",

@@ -701,6 +701,61 @@
   font-size: var(--text-sm);
 }
 
+/* Owner/manager tiles: the floor body is a link, management actions sit apart. */
+.table-tile-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: inherit;
+  text-decoration: none;
+}
+
+.table-tile-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Edit / archive actions inside the table sheet. */
+.table-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.archived-tables {
+  margin-top: var(--space-5);
+  border-top: 1px dashed var(--line);
+  padding-top: var(--space-4);
+}
+
+.archived-tables summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.table-tile.archived {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 100px;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  cursor: default;
+  opacity: 0.75;
+}
+
+.table-tile.archived:hover {
+  transform: none;
+}
+
 /* --------------------------------------------------------------------------
    QR management + printing
    -------------------------------------------------------------------------- */
