@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 
 import type { MenuItem } from "@rest/api-client";
 import { newIdempotencyKey } from "@rest/api-client";
@@ -22,6 +22,7 @@ import {
   Title,
 } from "@/components/ui";
 import { useCreateOrder, useMenu, useOrders } from "@/features/orders/api";
+import { useServeItem, useTickets } from "@/features/kitchen/api";
 import { useTable } from "@/features/tables/api";
 import { ApiError } from "@/lib/api";
 import { elapsed, formatMoney } from "@/lib/format";

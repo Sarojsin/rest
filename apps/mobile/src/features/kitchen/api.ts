@@ -30,7 +30,7 @@ export function useSetItemStatus() {
   const queryClient = useQueryClient();
   const restaurantId = useRestaurantId();
   return useMutation({
-    mutationFn: (input: { itemId: string; status: "PREPARING" | "READY" | "SERVED" }) =>
+    mutationFn: (input: { itemId: string; status: "PREPARING" | "READY" }) =>
       api<KitchenTicket>(`/api/v1/kitchen/ticket-items/${input.itemId}/status`, {
         method: "POST",
         body: JSON.stringify({ status: input.status }),
@@ -44,6 +44,32 @@ export function useSetItemStatus() {
           previous ? previous.map((row) => (row.id === ticket.id ? ticket : row)) : previous
       );
       void queryClient.invalidateQueries({ queryKey: ["service-calls", restaurantId] });
+    },
+  });
+}
+
+/**
+ * Waiter action: hand a ready kitchen item to the guest (`SERVED` requires
+ * `orders.serve`, which the kitchen role lacks). Serving the last item also
+ * completes the order, so the waiter's order list is refreshed too.
+ */
+export function useServeItem() {
+  const queryClient = useQueryClient();
+  const restaurantId = useRestaurantId();
+  return useMutation({
+    mutationFn: (itemId: string) =>
+      api<KitchenTicket>(`/api/v1/kitchen/ticket-items/${itemId}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status: "SERVED" }),
+      }),
+    onSuccess: (ticket) => {
+      queryClient.setQueryData<KitchenTicket[]>(
+        kitchenKeys.tickets(restaurantId),
+        (previous) =>
+          previous ? previous.map((row) => (row.id === ticket.id ? ticket : row)) : previous
+      );
+      void queryClient.invalidateQueries({ queryKey: ["service-calls", restaurantId] });
+      void queryClient.invalidateQueries({ queryKey: ["orders", restaurantId] });
     },
   });
 }

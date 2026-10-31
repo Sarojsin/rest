@@ -85,7 +85,7 @@ export default function KitchenBoardScreen() {
 
   const openCount = grouped.NEW.length + grouped.IN_PROGRESS.length;
 
-  function moveItem(item: KitchenTicketItem, status: "PREPARING" | "READY" | "SERVED") {
+  function moveItem(item: KitchenTicketItem, status: "PREPARING" | "READY") {
     setError(null);
     setNotice(null);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -276,7 +276,8 @@ export default function KitchenBoardScreen() {
         ) : null}
 
         <Text style={{ fontSize: text.xs, color: c.muted }}>
-          Item states move new → cooking → ready → served. The floor is only alerted when you press
+          Item states move new → cooking → ready. Serving at the table is the
+          waiter&apos;s job — the floor is alerted when you press
           “All ready — call waiter”.
         </Text>
       </View>
@@ -300,7 +301,7 @@ function TicketCard({
   tableName: (id: string) => string;
   busyItemId: string | null;
   calling: boolean;
-  onMove: (item: KitchenTicketItem, status: "PREPARING" | "READY" | "SERVED") => void;
+  onMove: (item: KitchenTicketItem, status: "PREPARING" | "READY") => void;
   onSignal: () => void;
 }) {
   const theme = useTheme();
@@ -427,13 +428,7 @@ function TicketCard({
                     />
                   ) : null}
                   {item.status === "READY" ? (
-                    <Button
-                      label="Served"
-                      variant="secondary"
-                      fullWidth
-                      loading={busyItemId === item.id}
-                      onPress={() => onMove(item, "SERVED")}
-                    />
+                    <Badge status="READY" />
                   ) : null}
                 </View>
               ) : (

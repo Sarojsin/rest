@@ -24,9 +24,13 @@ def list_tickets(
 def update_item_status(
     item_id: UUID,
     payload: KitchenItemStatusRequest,
-    actor: Actor = Depends(require_permission("kitchen.update")),
+    actor: Actor = Depends(require_permission("kitchen.read")),
     db: Session = Depends(get_db),
 ) -> KitchenTicketOut:
+    """Kitchen progress is `kitchen.update`; delivering to the guest (`SERVED`)
+    is floor work and requires `orders.serve` — a waiter/manager/owner. A single
+    endpoint serves both flows, so the permission is split on the target status."""
+    actor.require("orders.serve" if payload.status == "SERVED" else "kitchen.update")
     return kitchen_service.transition_kitchen_item(db, actor.membership, item_id, payload.status)
 
 

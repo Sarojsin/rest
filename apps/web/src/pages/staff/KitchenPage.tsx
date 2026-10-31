@@ -79,7 +79,7 @@ export default function KitchenPage() {
     };
   }, [load]);
 
-  async function setItemStatus(item: KitchenTicketItem, status: "PREPARING" | "READY" | "SERVED") {
+  async function setItemStatus(item: KitchenTicketItem, status: "PREPARING" | "READY") {
     setBusyId(item.id);
     setError(null);
     setNotice(null);
@@ -252,14 +252,7 @@ export default function KitchenPage() {
                                 </button>
                               ) : null}
                               {item.status === "READY" ? (
-                                <button
-                                  className="btn secondary btn-sm"
-                                  type="button"
-                                  disabled={busyId === item.id}
-                                  onClick={() => void setItemStatus(item, "SERVED")}
-                                >
-                                  Served
-                                </button>
+                                <span className="muted text-sm">With the waiter</span>
                               ) : null}
                             </div>
                           ) : null}
@@ -299,8 +292,9 @@ export default function KitchenPage() {
       </div>
 
       <p className="muted text-sm" style={{ marginTop: "var(--space-5)" }}>
-        Item states move new → cooking → ready → served. The waiter is only called when you press{" "}
-        <strong>All ready — call waiter</strong>; that also notifies the floor bell.{" "}
+        Item states move new → cooking → ready. Serving the food at the table is the
+        waiter&apos;s job — press{" "}
+        <strong>All ready — call waiter</strong> when plating is done; that also notifies the floor bell.{" "}
         {openCount === 0 ? <Link to="/staff">Back to dashboard</Link> : null}
       </p>
     </>

@@ -286,13 +286,14 @@ def test_kitchen_call_waiter_rejects_closed_tickets(client: TestClient) -> None:
     tickets = client.get("/api/v1/kitchen/tickets", headers=kitchen)
     ticket = next(t for t in tickets.json() if t["order_id"] == created.json()["id"])
 
-    # Close the workflow: signal ready, then serve → parent order completes.
+    # Close the workflow: kitchen signals ready; the waiter serves → the parent
+    # order completes. Serving is floor work, not a kitchen action.
     ready = client.post(f"/api/v1/kitchen/tickets/{ticket['id']}/call-waiter", headers=kitchen)
     assert ready.status_code == 200, ready.text
     served = client.post(
         f"/api/v1/kitchen/ticket-items/{ticket['items'][0]['id']}/status",
         json={"status": "SERVED"},
-        headers=kitchen,
+        headers=waiter,
     )
     assert served.status_code == 200, served.text
 

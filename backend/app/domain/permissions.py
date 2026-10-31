@@ -2,6 +2,7 @@ OWNER = {
     "orders.read",
     "orders.create",
     "orders.confirm_qr",
+    "orders.serve",
     "orders.cancel",
     "kitchen.read",
     "kitchen.update",
@@ -22,6 +23,7 @@ WAITER = {
     "orders.read",
     "orders.create",
     "orders.confirm_qr",
+    "orders.serve",
     "kitchen.read",
     "tables.manage",
 }
