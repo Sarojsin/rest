@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch, type Order, type ServiceCall } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { monogram } from "../../lib/brand";
 import { Icon, type IconName } from "../../components/Icon";
 
 /**
@@ -197,7 +198,7 @@ export default function StaffLayout() {
   const current =
     TITLES.find((entry) => entry.match(location.pathname)) ?? {
       title: "Staff",
-      crumb: "Harbor Table",
+      crumb: "Staff workspace",
     };
 
   const visible = NAV.filter((item) => item.permissions.some((permission) => has(permission)));
@@ -216,7 +217,9 @@ export default function StaffLayout() {
 
       <aside className={`sidebar ${navOpen ? "is-open" : ""}`} aria-label="Staff navigation">
         <Link className="sidebar-brand" to="/staff">
-          <div className="mark">HT</div>
+          <div className="mark" aria-hidden="true">
+            {monogram(me.membership.restaurant_name)}
+          </div>
           <div>
             <p className="sidebar-title">{me.membership.restaurant_name}</p>
             <p className="sidebar-role">{me.membership.role}</p>

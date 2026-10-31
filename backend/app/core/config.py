@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     tax_rate_bps: int = 1000
     uploads_dir: str = "./data/uploads"
     max_qr_image_bytes: int = 2_097_152  # 2 MB
+    # Production bootstrap (used only when the deployed DB is empty):
+    # structural minimum — one restaurant and one owner. No demo data is ever
+    # seeded in production; menus/tables/staff are created through the app.
+    restaurant_name: str = ""
+    currency_code: str = "USD"
+    timezone: str = "UTC"
+    bootstrap_owner_email: str = ""
+    bootstrap_owner_password: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

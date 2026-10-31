@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -6,6 +8,9 @@ from app.models.identity import Restaurant, RestaurantMembership, RestaurantSett
 from app.models.billing import PaymentMethodConfig
 from app.models.menu import MenuCategory, MenuItem
 from app.models.tables import RestaurantTable, TableQrCode
+
+if TYPE_CHECKING:
+    from app.core.config import Settings
 
 DEMO_QR_TOKENS = {
     "T1": "table-harbor-1-alpha",
@@ -199,6 +204,80 @@ def seed_if_empty(db: Session) -> None:
                     ingredients_text=ingredients,
                 )
             )
+
+    for label, kind, account_hint, instructions, display_order in DEFAULT_PAYMENT_METHODS:
+        db.add(
+            PaymentMethodConfig(
+                restaurant_id=restaurant.id,
+                label=label,
+                kind=kind,
+                account_hint=account_hint,
+                instructions=instructions,
+                is_active=True,
+                display_order=display_order,
+            )
+        )
+    db.commit()
+
+
+def bootstrap_production(db: Session, settings: "Settings") -> None:
+    """Production startup path: structural minimum only — never demo data.
+
+    An empty production database is bootstrapped with one restaurant, one owner
+    account, settings, and the default payment methods. No demo restaurant,
+    menu, tables, QR tokens, or extra staff accounts — the owner creates real
+    tables, menu items, and staff through the app (audited in the process).
+    """
+    existing = db.scalar(select(func.count()).select_from(Restaurant))
+    if existing:
+        return
+
+    if not settings.bootstrap_owner_email or not settings.bootstrap_owner_password:
+        raise RuntimeError(
+            "Production database is empty. Set BOOTSTRAP_OWNER_EMAIL and "
+            "BOOTSTRAP_OWNER_PASSWORD to create the first owner account, or "
+            "migrate an existing database."
+        )
+    if len(settings.bootstrap_owner_password) < 8:
+        raise RuntimeError("BOOTSTRAP_OWNER_PASSWORD must be at least 8 characters.")
+
+    restaurant = Restaurant(
+        name=settings.restaurant_name or "Our Restaurant",
+        slug="main",
+        timezone=settings.timezone or "UTC",
+        currency_code=settings.currency_code,
+        status="ACTIVE",
+    )
+    db.add(restaurant)
+    db.flush()
+    db.add(
+        RestaurantSettings(
+            restaurant_id=restaurant.id,
+            locale="en-NP",
+            tax_rate_bps=settings.tax_rate_bps,
+            receipt_header=settings.restaurant_name or "Our Restaurant",
+            receipt_footer="Thank you",
+            qr_ordering_enabled=True,
+            online_payments_enabled=False,
+        )
+    )
+
+    owner = User(
+        email=settings.bootstrap_owner_email,
+        password_hash=hash_password(settings.bootstrap_owner_password),
+        display_name="Owner",
+        status="ACTIVE",
+    )
+    db.add(owner)
+    db.flush()
+    db.add(
+        RestaurantMembership(
+            restaurant_id=restaurant.id,
+            user_id=owner.id,
+            role="owner",
+            status="ACTIVE",
+        )
+    )
 
     for label, kind, account_hint, instructions, display_order in DEFAULT_PAYMENT_METHODS:
         db.add(

@@ -20,5 +20,17 @@ export const API_BASE_URL = (configured && configured.length > 0 ? configured : 
   ""
 );
 
+/**
+ * A release build without an explicit `EXPO_PUBLIC_API_URL` would silently
+ * target the developer's machine, which is never reachable in production.
+ * Warn in dev; in release the URL must be baked in by the build pipeline.
+ */
+if (__DEV__ && !(configured && configured.length > 0)) {
+  console.warn(
+    "[config] EXPO_PUBLIC_API_URL is not set — falling back to the emulator default:",
+    API_BASE_URL
+  );
+}
+
 /** Shown on the account screen so staff can report a misconfigured build. */
 export const IS_DEV = __DEV__;

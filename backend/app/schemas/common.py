@@ -56,6 +56,7 @@ class OrderOut(ORMModel):
     subtotal_minor: int = 0
     tax_minor: int = 0
     total_minor: int = 0
+    currency_code: str = ""
 
 
 class KitchenTicketItemOut(ORMModel):

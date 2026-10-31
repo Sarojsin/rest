@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-const TOKEN_KEY = "harbor.access_token";
+const TOKEN_KEY = "rest.access_token";
 
 /**
  * The access token lives in Keychain/Keystore, never in AsyncStorage.

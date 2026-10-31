@@ -3,6 +3,11 @@ import { apiFetch, formatMoney, ApiError, type MenuCategory, type MenuItem } fro
 import { PageHeader } from "../../components/PageHeader";
 import { StatusBadge } from "../../components/StatusBadge";
 
+/**
+ * Curated publish allowlist: menu items may only reference assets that ship
+ * with the website (see `public/menu/...`). Blocking arbitrary URLs keeps
+ * uploaded/served images reviewed — per the web security rules.
+ */
 const APPROVED_IMAGES = [
   { path: "/menu/food/steam-momo.webp", label: "Steam momo" },
   { path: "/menu/food/jhol-momo.jpg", label: "Jhol momo" },

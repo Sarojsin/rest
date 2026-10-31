@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   View,
@@ -17,21 +16,13 @@ import { homeRouteFor, useAuth } from "@/lib/auth";
 import { useTheme } from "@/theme/context";
 import { radius, space, text } from "@/theme/tokens";
 
-const DEMO_ROLES = [
-  { role: "Owner", email: "owner@harbor.example" },
-  { role: "Manager", email: "manager@harbor.example" },
-  { role: "Waiter", email: "waiter@harbor.example" },
-  { role: "Kitchen", email: "kitchen@harbor.example" },
-  { role: "Cashier", email: "cashier@harbor.example" },
-] as const;
-
 export default function LoginScreen() {
   const { status, me, signIn, sessionExpired } = useAuth();
   const theme = useTheme();
   const c = theme.color;
 
-  const [email, setEmail] = useState("waiter@harbor.example");
-  const [password, setPassword] = useState("HarborWaiter!1");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -80,13 +71,13 @@ export default function LoginScreen() {
                 marginBottom: space[3],
               }}
             >
-              <Text style={{ color: c.navInk, fontWeight: "800", fontSize: text.md }}>HT</Text>
+              <Ionicons name="restaurant-outline" size={22} color={c.navInk} />
             </View>
             <Text style={{ fontSize: text.xl, fontWeight: "800", color: c.ink }}>
-              Harbor Table
+              Staff sign in
             </Text>
             <Text style={{ fontSize: text.base, color: c.muted }}>
-              Staff app for the floor, kitchen, and cashier.
+              Use the account your restaurant created for you.
             </Text>
           </View>
 
@@ -139,42 +130,6 @@ export default function LoginScreen() {
               loading={busy}
               onPress={() => void submit()}
             />
-          </View>
-
-          <View style={{ gap: space[3] }}>
-            <Text style={{ fontSize: text.xs, color: c.muted }}>
-              Demo accounts — tap to fill. Password pattern: Harbor&lt;Role&gt;!1
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space[2] }}>
-              {DEMO_ROLES.map((account) => (
-                <Pressable
-                  key={account.role}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Fill ${account.role} demo account`}
-                  onPress={() => {
-                    setEmail(account.email);
-                    setPassword(`Harbor${account.role}!1`);
-                    setError(null);
-                  }}
-                  style={({ pressed }) => ({
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    paddingHorizontal: space[3],
-                    paddingVertical: space[2],
-                    borderRadius: radius.pill,
-                    borderWidth: 1,
-                    borderColor: c.lineStrong,
-                    backgroundColor: pressed ? c.surface3 : c.surface,
-                  })}
-                >
-                  <Ionicons name="person-outline" size={14} color={c.muted} />
-                  <Text style={{ fontSize: text.sm, fontWeight: "600", color: c.ink }}>
-                    {account.role}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
           </View>
 
           <Text

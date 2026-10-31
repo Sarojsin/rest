@@ -299,6 +299,7 @@ export type Order = {
   subtotal_minor: number;
   tax_minor: number;
   total_minor: number;
+  currency_code: string;
 };
 
 export type Table = {
@@ -408,6 +409,7 @@ export type AuditEvent = {
 export type PublicOrderStatus = {
   order_id: string;
   status: string;
+  restaurant_name: string;
   table_display_name: string;
   submitted_at: string;
   accepted_at: string | null;

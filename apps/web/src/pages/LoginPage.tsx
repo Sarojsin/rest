@@ -2,14 +2,8 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-
-const DEMO_ROLES = [
-  { role: "Owner", email: "owner@harbor.example" },
-  { role: "Manager", email: "manager@harbor.example" },
-  { role: "Waiter", email: "waiter@harbor.example" },
-  { role: "Kitchen", email: "kitchen@harbor.example" },
-  { role: "Cashier", email: "cashier@harbor.example" },
-];
+import { BRAND_NAME, monogram } from "../lib/brand";
+import { DEMO_ACCOUNTS, DEMO_ENABLED } from "../lib/demo";
 
 function landingFor(role: string): string {
   if (role === "kitchen") return "/staff/kitchen";
@@ -22,8 +16,8 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [email, setEmail] = useState(() => params.get("email") ?? "waiter@harbor.example");
-  const [password, setPassword] = useState(() => params.get("password") ?? "HarborWaiter!1");
+  const [email, setEmail] = useState(() => params.get("email") ?? "");
+  const [password, setPassword] = useState(() => params.get("password") ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -46,9 +40,9 @@ export default function LoginPage() {
       <div className="shell" style={{ width: "100%" }}>
         <header className="topbar">
           <Link className="brand" to="/">
-            <div className="mark">HT</div>
+            <div className="mark">{monogram(BRAND_NAME)}</div>
             <div>
-              <h1>Harbor Table</h1>
+              <h1>{BRAND_NAME}</h1>
               <p>Staff access</p>
             </div>
           </Link>
@@ -96,27 +90,27 @@ export default function LoginPage() {
             {busy ? "Signing in…" : "Sign in"}
           </button>
 
-          <div className="login-demo">
-            <p className="field-hint">
-              Demo accounts — tap to fill. Password pattern: Harbor&lt;Role&gt;!1
-            </p>
-            <div className="chip-row">
-              {DEMO_ROLES.map((account) => (
-                <button
-                  key={account.role}
-                  type="button"
-                  className="cat-chip"
-                  onClick={() => {
-                    setEmail(account.email);
-                    setPassword(`Harbor${account.role}!1`);
-                    setError(null);
-                  }}
-                >
-                  {account.role}
-                </button>
-              ))}
+          {DEMO_ENABLED ? (
+            <div className="login-demo">
+              <p className="field-hint">Demo accounts — tap to fill, then press sign in.</p>
+              <div className="chip-row">
+                {DEMO_ACCOUNTS.map((account) => (
+                  <button
+                    key={account.role}
+                    type="button"
+                    className="cat-chip"
+                    onClick={() => {
+                      setEmail(account.email);
+                      setPassword(account.password);
+                      setError(null);
+                    }}
+                  >
+                    {account.role}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </form>
 
         <p className="muted text-sm" style={{ textAlign: "center" }}>

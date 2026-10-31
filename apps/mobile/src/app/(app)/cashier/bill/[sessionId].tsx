@@ -454,9 +454,9 @@ export default function BillScreen() {
             {chosenMethod?.kind === "QR"
               ? `I checked the ${chosenMethod.label} account and received ${formatMoney(
                   amountMinor,
-                  bill?.currency_code ?? "USD"
+                  bill?.currency_code ?? ""
                 )}.`
-              : `I counted ${formatMoney(amountMinor, bill?.currency_code ?? "USD")} in cash from this table.`}
+              : `I counted ${formatMoney(amountMinor, bill?.currency_code ?? "")} in cash from this table.`}
           </Text>
         </Pressable>
 

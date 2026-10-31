@@ -53,6 +53,9 @@ def order_to_out(order: Order) -> OrderOut:
         subtotal_minor=subtotal,
         tax_minor=tax,
         total_minor=subtotal + tax,
+        # Every line is priced in the restaurant's currency at submit time, so the
+        # order-level currency is simply the currency of its (non-empty) items.
+        currency_code=items[0].currency_code if items else "",
     )
 
 

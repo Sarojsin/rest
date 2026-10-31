@@ -89,7 +89,7 @@ export default function WaiterRequestsScreen() {
       `Accept order for ${tableName(order.table_id)}?`,
       `${itemCount} item${itemCount === 1 ? "" : "s"} · ${formatMoney(
         order.total_minor,
-        "USD"
+        order.currency_code
       )}\n\nThis sends the order to the kitchen. It cannot be un-accepted.`,
       [
         { text: "Not yet", style: "cancel" },
@@ -250,7 +250,7 @@ export default function WaiterRequestsScreen() {
                 >
                   <Text style={{ fontSize: text.sm, color: c.muted }}>Total</Text>
                   <Text style={{ fontSize: text.md, fontWeight: "800", color: c.ink }}>
-                    {formatMoney(order.total_minor, "USD")}
+                    {formatMoney(order.total_minor, order.currency_code)}
                   </Text>
                 </View>
 

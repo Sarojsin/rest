@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.errors import AppError, app_error_handler, http_error_handler, problem_body
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
-from app.seed import seed_if_empty
+from app.seed import bootstrap_production, seed_if_empty
 
 import app.models  # noqa: F401
 from pathlib import Path
@@ -106,11 +106,12 @@ def on_startup() -> None:
                 )
         finally:
             db_check.close()
-        # Verify the connection the server will actually use, then seed reference data.
+        # Verify the connection the server will actually use, then bootstrap
+        # the structural minimum (never demo data — see app/seed.py).
         _ = _engine  # fail fast early if engine cannot even be constructed
         db = _SessionLocal()
         try:
-            seed_if_empty(db)
+            bootstrap_production(db, settings)
         finally:
             db.close()
     else:

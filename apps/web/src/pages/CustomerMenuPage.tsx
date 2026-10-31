@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { monogram } from "../lib/brand";
 import {
   apiFetch,
   newIdempotencyKey,
@@ -40,7 +41,7 @@ const MENU_REFRESH_MS = 40_000;
 // A cart survives refreshes and accidental reopens of the same table's tab. Keyed per
 // table token so scanning another table never inherits the wrong order.
 function cartStorageKey(qrToken: string | undefined): string | null {
-  return qrToken ? `harbor.cart.${qrToken}` : null;
+  return qrToken ? `rest.cart.${qrToken}` : null;
 }
 
 type PersistedCart = {
@@ -414,7 +415,9 @@ export default function CustomerMenuPage() {
         <div className="menu-topbar-inner">
           <div className="row">
             <Link className="brand" to="/">
-              <div className="mark">HT</div>
+              <div className="mark" aria-hidden="true">
+                {monogram(menu.restaurant_name)}
+              </div>
               <div>
                 <h1>{menu.restaurant_name}</h1>
                 <p>{menu.table_display_name} · Table-side menu</p>

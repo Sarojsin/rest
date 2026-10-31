@@ -9,7 +9,7 @@ import { createApiClient } from "@rest/api-client";
 
 export * from "@rest/api-client";
 
-const TOKEN_KEY = "harbor.access_token";
+const TOKEN_KEY = "rest.access_token";
 
 export function getToken(): string | null {
   return sessionStorage.getItem(TOKEN_KEY);

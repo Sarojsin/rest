@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiFetch, ApiError, formatMoney, type PublicOrderStatus } from "../lib/api";
+import { monogram } from "../lib/brand";
 import { StatusBadge } from "../components/StatusBadge";
 
 function statusCopy(status: string): { title: string; body: string } {
@@ -206,9 +207,11 @@ export default function CustomerStatusPage() {
       <div className="shell page">
         <header className="topbar">
           <Link className="brand" to="/">
-            <div className="mark">HT</div>
+            <div className="mark" aria-hidden="true">
+              {monogram(order.restaurant_name)}
+            </div>
             <div>
-              <h1>Harbor Table</h1>
+              <h1>{order.restaurant_name || "Table-side ordering"}</h1>
               <p>{order.table_display_name}</p>
             </div>
           </Link>

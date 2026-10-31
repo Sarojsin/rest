@@ -213,6 +213,12 @@
   font-size: 1.2rem;
 }
 
+/* Demo cards on the landing page: the sign-in button hugs the card bottom. */
+.path-card .demo-cta {
+  align-self: flex-start;
+  margin-top: var(--space-3);
+}
+
 .path-card p {
   line-height: 1.6;
 }

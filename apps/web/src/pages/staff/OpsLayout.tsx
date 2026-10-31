@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
+import { monogram } from "../../lib/brand";
 import { Icon } from "../../components/Icon";
 
 /**
@@ -54,7 +55,9 @@ export default function OpsLayout() {
       <header className="ops-header">
         <div className="ops-header-inner">
           <div className="ops-brand">
-            <div className="mark">HT</div>
+            <div className="mark" aria-hidden="true">
+              {monogram(me.membership.restaurant_name)}
+            </div>
             <div>
               <h1 className="ops-title">{title}</h1>
               <p className="ops-sub">

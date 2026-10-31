@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.db.session import get_db
+from app.models.identity import Restaurant
 from app.models.tables import RestaurantTable
 from app.schemas.public import (
     PublicMenuOut,
@@ -59,10 +60,12 @@ def submit_qr_order(
 def get_order_status(status_token: str, db: Session = Depends(get_db)) -> PublicOrderStatusOut:
     order = order_service.get_public_order_status(db, status_token)
     table = db.get(RestaurantTable, order.table_id)
+    restaurant = db.get(Restaurant, order.restaurant_id)
     out = order_service.order_to_out(order)
     return PublicOrderStatusOut(
         order_id=order.id,
         status=order.status,
+        restaurant_name=restaurant.name if restaurant else "",
         table_display_name=table.display_name if table else "Table",
         submitted_at=order.submitted_at.isoformat(),
         accepted_at=order.accepted_at.isoformat() if order.accepted_at else None,
@@ -77,7 +80,7 @@ def get_order_status(status_token: str, db: Session = Depends(get_db)) -> Public
             for item in out.items
         ],
         total_minor=out.total_minor,
-        currency_code=out.items[0].currency_code if out.items else "USD",
+        currency_code=out.currency_code,
     )
 from app.schemas.public_extra import CancelOrderRequest, RateOrderRequest, PublicBillOut, PublicBillItemOut
 from app.services import billing as billing_service

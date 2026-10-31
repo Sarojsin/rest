@@ -52,6 +52,7 @@ class SubmitQrOrderResponse(BaseModel):
 class PublicOrderStatusOut(BaseModel):
     order_id: UUID
     status: str
+    restaurant_name: str
     table_display_name: str
     submitted_at: str
     accepted_at: str | None
