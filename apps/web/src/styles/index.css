@@ -4,5 +4,6 @@
 @import "./base.css";
 @import "./components.css";
 @import "./customer.css";
+@import "./customer-menu.css";
 @import "./management.css";
 @import "./operations.css";
