@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useKeepAwake } from "expo-keep-awake";
 import * as Haptics from "expo-haptics";
-import { useAudioPlayer } from "expo-audio";
 import { useMemo, useState } from "react";
 import { Pressable, Text, useWindowDimensions, View } from "react-native";
 
@@ -54,9 +53,6 @@ export default function KitchenBoardScreen() {
   // A kitchen tablet is mounted on a wall; letting the screen sleep mid-service
   // is worse than the battery cost.
   useKeepAwake();
-
-  // Load notification sound
-  const player = useAudioPlayer(require("../../../../assets/notification.wav"));
 
   const theme = useTheme();
   const c = theme.color;
@@ -112,8 +108,6 @@ export default function KitchenBoardScreen() {
     setError(null);
     setNotice(null);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // Play notification sound
-    player.play();
     callWaiter.mutate(ticket.id, {
       onSuccess: () => setNotice(`Ticket ${ticket.ticket_number} marked ready and the floor called.`),
       onError: (err) =>
@@ -180,7 +174,6 @@ export default function KitchenBoardScreen() {
                   fullWidth={false}
                   loading={acknowledge.isPending}
                   onPress={() => {
-                    player.play();
                     acknowledge.mutate(call.id, {
                       onSuccess: () => setNotice(`Service call acknowledged for ${call.table_display_name}.`),
                       onError: (err) =>
