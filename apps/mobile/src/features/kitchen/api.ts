@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { KitchenTicket } from "@rest/api-client";
+import type { KitchenTicket, ServiceCall } from "@rest/api-client";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export const kitchenKeys = {
   tickets: (restaurantId: string) => ["kitchen-tickets", restaurantId] as const,
+  serviceCalls: (restaurantId: string) => ["service-calls", restaurantId] as const,
 };
 
 function useRestaurantId(): string {
@@ -23,6 +24,29 @@ export function useTickets() {
     enabled: Boolean(me),
     // The board is the one screen where four seconds of staleness matters.
     refetchInterval: 4_000,
+  });
+}
+
+export function useServiceCalls(status: string = "REQUESTED") {
+  const { me } = useAuth();
+  const restaurantId = useRestaurantId();
+  return useQuery({
+    queryKey: [...kitchenKeys.serviceCalls(restaurantId), status],
+    queryFn: () => api<ServiceCall[]>(`/api/v1/service-calls?status=${status}`),
+    enabled: Boolean(me),
+    refetchInterval: 5_000,
+  });
+}
+
+export function useAcknowledgeServiceCall() {
+  const queryClient = useQueryClient();
+  const restaurantId = useRestaurantId();
+  return useMutation({
+    mutationFn: (callId: string) =>
+      api<ServiceCall>(`/api/v1/service-calls/${callId}/acknowledge`, { method: "POST" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: kitchenKeys.serviceCalls(restaurantId) });
+    },
   });
 }
 

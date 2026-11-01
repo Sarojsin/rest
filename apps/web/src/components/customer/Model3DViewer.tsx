@@ -1,13 +1,28 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MenuItem } from "../../lib/api";
 
 /**
- * Loads the heavy <model-viewer> custom element only when a guest opens a 3D view.
- * The poster image stays underneath until the model fires `load`, so the stage is
- * never blank.
+ * Loads the heavy <model-viewer> custom element only when a guest opens a 3D
+ * view. The poster image stays underneath until the model fires `load`, so the
+ * stage is never blank. If the model cannot be displayed (no WebGL, blocked
+ * network, bad GLB) we fall back to the photographed dish instead of an empty
+ * canvas.
  */
-export function Model3DViewer({ item, onLoaded }: { item: MenuItem; onLoaded?: () => void }) {
+export function Model3DViewer({
+  item,
+  onLoaded,
+  fallbackImage,
+}: {
+  item: MenuItem;
+  onLoaded?: () => void;
+  fallbackImage?: string;
+}) {
   const viewerRef = useRef<HTMLElement>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [item.id, item.model_path]);
 
   useEffect(() => {
     void import("@google/model-viewer");
@@ -16,10 +31,24 @@ export function Model3DViewer({ item, onLoaded }: { item: MenuItem; onLoaded?: (
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
-    const handle = () => onLoaded?.();
-    viewer.addEventListener("load", handle);
-    return () => viewer.removeEventListener("load", handle);
-  }, [item.id, item.model_path, onLoaded]);
+    const handleLoad = () => onLoaded?.();
+    const handleError = () => setFailed(true);
+    viewer.addEventListener("load", handleLoad);
+    viewer.addEventListener("error", handleError);
+    return () => {
+      viewer.removeEventListener("load", handleLoad);
+      viewer.removeEventListener("error", handleError);
+    };
+  }, [item.id, item.model_path, onLoaded, failed]);
+
+  if (failed) {
+    return (
+      <div className="m-model-fallback" role="status">
+        {fallbackImage ? <img src={fallbackImage} alt="" aria-hidden="true" /> : null}
+        <p>3D preview is not available on this device — showing the dish photo instead.</p>
+      </div>
+    );
+  }
 
   return (
     <model-viewer

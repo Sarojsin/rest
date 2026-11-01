@@ -1,19 +1,25 @@
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { monogram } from "../lib/brand";
+
 import {
   apiFetch,
   newIdempotencyKey,
   ApiError,
+  type MenuCategory,
   type MenuItem,
   type PublicMenu,
   type PublicServiceCall,
 } from "../lib/api";
+import { fadeUp, useMenuMotion } from "../lib/motion";
 import { Sheet } from "../components/Sheet";
 import { DishCard } from "../components/customer/DishCard";
 import { MenuItemSheet } from "../components/customer/MenuItemSheet";
 import { CartSheet, type CartLine } from "../components/customer/CartSheet";
-import { CustomerDock, type CallStatus } from "../components/customer/CustomerDock";
+import { FloatingCart, type CallStatus } from "../components/customer/FloatingCart";
+import { MenuHero } from "../components/customer/MenuHero";
+import { CategoryNav } from "../components/customer/CategoryNav";
+import { MenuSkeleton } from "../components/customer/MenuSkeletons";
 import { Model3DViewer } from "../components/customer/Model3DViewer";
 
 type Cart = Record<string, CartLine>;
@@ -110,10 +116,13 @@ function menuFingerprint(menu: PublicMenu): string {
 export default function CustomerMenuPage() {
   const { qrToken } = useParams();
   const navigate = useNavigate();
+  const motionPrefs = useMenuMotion();
+
   const [menu, setMenu] = useState<PublicMenu | null>(null);
   const [cart, setCart] = useState<Cart>({});
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [sheetItem, setSheetItem] = useState<MenuItem | null>(null);
@@ -125,6 +134,7 @@ export default function CustomerMenuPage() {
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [callBusy, setCallBusy] = useState(false);
   const [cartNotice, setCartNotice] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   // Cache of the last menu fingerprint; equal fingerprint means skip setMenu (no re-render).
   const menuFingerprintRef = useRef<string | null>(null);
   // Cart restore runs exactly once, on the first menu that arrives.
@@ -147,7 +157,10 @@ export default function CustomerMenuPage() {
         cartMergedFingerprintRef.current = null;
         menuFingerprintRef.current = nextFingerprint;
         setMenu(data);
-        if (showErrors) setError(null);
+        if (showErrors) {
+          setError(null);
+          setErrorStatus(null);
+        }
         if (!cartLoadedRef.current) {
           cartLoadedRef.current = true;
           const persisted = loadPersistedCart(token);
@@ -169,7 +182,13 @@ export default function CustomerMenuPage() {
         }
       } catch (err) {
         if (!cancelled && showErrors) {
-          setError(err instanceof ApiError ? err.detail : "Menu unavailable.");
+          if (err instanceof ApiError) {
+            setError(err.detail);
+            setErrorStatus(err.status);
+          } else {
+            setError("Menu unavailable.");
+            setErrorStatus(null);
+          }
         }
       }
     }
@@ -184,7 +203,7 @@ export default function CustomerMenuPage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [qrToken]);
+  }, [qrToken, reloadKey]);
 
   // While a service call is open, keep the guest informed of waiter acknowledgement.
   useEffect(() => {
@@ -276,23 +295,46 @@ export default function CustomerMenuPage() {
   }, [menu]);
 
   // Track the category currently in view for the sticky chip bar.
+  //
+  // A scroll pass is used rather than IntersectionObserver because the chip bar
+  // must stay in sync even when several sections are on screen at once, and the
+  // guest should see the highlight move the moment they tap a chip.
   useEffect(() => {
     if (!menu) return;
-    const sections = menu.categories
-      .map((c) => document.getElementById(`cat-${c.id}`))
-      .filter((el): el is HTMLElement => el !== null);
-    if (sections.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) setActiveCategory(visible.target.id.replace("cat-", ""));
-      },
-      { rootMargin: "-170px 0px -55% 0px", threshold: 0 }
-    );
-    sections.forEach((section) => observer.observe(section));
-    return () => observer.disconnect();
+    const ids = menu.categories.map((category) => category.id);
+    if (ids.length === 0) return;
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      const marker = 112; // just under the sticky category rail
+      let current = ids[0];
+      for (const id of ids) {
+        const section = document.getElementById(`cat-${id}`);
+        if (!section) continue;
+        if (section.getBoundingClientRect().top - marker <= 0) current = id;
+        else break;
+      }
+      // The last section often cannot reach the marker on short menus.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
+        current = ids[ids.length - 1];
+      }
+      setActiveCategory((previous) => (previous === current ? previous : current));
+    };
+
+    const schedule = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+    };
   }, [menu]);
 
   // Reset the poster fade whenever a different model is opened.
@@ -310,7 +352,11 @@ export default function CustomerMenuPage() {
   }
 
   function scrollToCategory(id: string) {
-    document.getElementById(`cat-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveCategory(id);
+    document.getElementById(`cat-${id}`)?.scrollIntoView({
+      behavior: motionPrefs.reduced ? "auto" : "smooth",
+      block: "start",
+    });
   }
 
   async function sendOrder() {
@@ -366,6 +412,14 @@ export default function CustomerMenuPage() {
     }
   }
 
+  function retry() {
+    // Force the next successful fetch to repaint, even if it is unchanged.
+    menuFingerprintRef.current = null;
+    setError(null);
+    setErrorStatus(null);
+    setReloadKey((key) => key + 1);
+  }
+
   const searchResults = useMemo(() => {
     if (!menu) return [];
     const needle = search.trim().toLowerCase();
@@ -380,28 +434,63 @@ export default function CustomerMenuPage() {
       );
   }, [menu, search]);
 
+  const featured = useMemo(() => {
+    if (!menu) return null;
+    return (
+      menu.categories
+        .flatMap((category) => category.items)
+        .find(
+          (item) =>
+            Boolean(item.image_path) && (item.status === "PUBLISHED" || item.status === "AVAILABLE")
+        ) ?? null
+    );
+  }, [menu]);
+
   const searching = search.trim().length > 0;
 
   if (!menu && !error) {
     return (
       <div className="menu-shell" data-theme="customer">
-        <div className="shell">
-          <p className="muted">Loading menu…</p>
-        </div>
+        <MenuSkeleton />
       </div>
     );
   }
 
   if (error && !menu) {
+    const expired = errorStatus === 404 || errorStatus === 410;
+    const restricted = errorStatus === 401 || errorStatus === 403;
     return (
       <div className="menu-shell" data-theme="customer">
-        <div className="shell">
-          <div className="error" role="alert">
-            {error}
+        <div className="m-state">
+          <div className="m-state-card" role="alert">
+            <div className="m-state-icon" aria-hidden="true">
+              <StatusIcon kind={expired ? "expired" : restricted ? "lock" : "wifi"} />
+            </div>
+            <h1 className="m-state-title">
+              {expired
+                ? "This table link has expired"
+                : restricted
+                  ? "This menu is not available"
+                  : "We couldn’t load the menu"}
+            </h1>
+            <p className="m-state-body">
+              {expired
+                ? "The QR code on your table may have been replaced. Please ask a member of staff for the current code."
+                : restricted
+                  ? "This link is no longer valid. Ask a member of staff to help you open the menu."
+                  : "Check your connection and try again. Your table’s menu is still there — nothing has been ordered."}
+            </p>
+            <div className="m-state-actions">
+              {!expired && !restricted ? (
+                <button type="button" className="m-btn m-btn-primary" onClick={retry}>
+                  Try again
+                </button>
+              ) : null}
+              <Link className="m-btn m-btn-ghost" to="/">
+                Back to home
+              </Link>
+            </div>
           </div>
-          <Link className="btn secondary" to="/">
-            Back to home
-          </Link>
         </div>
       </div>
     );
@@ -411,140 +500,135 @@ export default function CustomerMenuPage() {
 
   return (
     <div className="menu-shell" data-theme="customer">
-      <header className="menu-topbar">
-        <div className="menu-topbar-inner">
-          <div className="row">
-            <Link className="brand" to="/">
-              <div className="mark" aria-hidden="true">
-                {monogram(menu.restaurant_name)}
-              </div>
-              <div>
-                <h1>{menu.restaurant_name}</h1>
-                <p>{menu.table_display_name} · Table-side menu</p>
-              </div>
-            </Link>
-            <span className="menu-table-chip">{menu.table_display_name}</span>
+      <MenuHero
+        menu={menu}
+        search={search}
+        onSearchChange={setSearch}
+        onClearSearch={() => setSearch("")}
+        featured={featured}
+        onOpenFeatured={setSheetItem}
+      />
+
+      {!searching ? (
+        <CategoryNav
+          categories={menu.categories}
+          activeCategory={activeCategory}
+          onSelect={scrollToCategory}
+        />
+      ) : null}
+
+      <main className="m-body" id="menu-main">
+        {!menu.qr_ordering_enabled ? (
+          <div className="m-notice" role="status">
+            <span className="m-notice-icon" aria-hidden="true">
+              ⓘ
+            </span>
+            <p>
+              Ordering is paused for this table. You can still browse the menu — ask a member of
+              staff to take your order.
+            </p>
           </div>
-        </div>
-
-        <div className="menu-search">
-          <label className="visually-hidden" htmlFor="menu-search-input">
-            Search the menu
-          </label>
-          <input
-            id="menu-search-input"
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search dishes or ingredients"
-            autoComplete="off"
-          />
-        </div>
-
-        {!searching && menu.categories.length > 0 ? (
-          <nav className="cat-chips" aria-label="Menu categories">
-            {menu.categories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                className={`cat-chip ${activeCategory === category.id ? "is-active" : ""}`}
-                onClick={() => scrollToCategory(category.id)}
-              >
-                {category.name}
-              </button>
-            ))}
-          </nav>
         ) : null}
-      </header>
 
-      <main className="menu-body">
         {error ? (
-          <div className="error" role="alert">
+          <div className="m-alert" role="alert">
             {error}
           </div>
         ) : null}
 
-        {cartNotice ? (
-          <div className="cart-notice" role="status">
-            <span aria-hidden="true">ⓘ</span>
-            {cartNotice}
-            <button
-              type="button"
-              className="cart-notice-close"
-              aria-label="Dismiss menu update notice"
-              onClick={() => setCartNotice(null)}
+        <AnimatePresence initial={false}>
+          {cartNotice ? (
+            <motion.div
+              className="m-notice"
+              role="status"
+              initial={motionPrefs.reduced ? false : { opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={motionPrefs.reduced ? { opacity: 0 } : { opacity: 0, y: -8 }}
+              transition={motionPrefs.reduced ? motionPrefs.none : motionPrefs.card}
             >
-              ×
-            </button>
-          </div>
-        ) : null}
-
-        {!searching ? (
-          <div className="menu-intro">
-            <p className="kicker">Welcome to {menu.restaurant_name}</p>
-            <h2>What would you like tonight?</h2>
-            <p>
-              Browse the menu, build your order, then send it to the floor. A team member confirms
-              before the kitchen begins.
-            </p>
-          </div>
-        ) : null}
+              <span className="m-notice-icon" aria-hidden="true">
+                ⓘ
+              </span>
+              <p>{cartNotice}</p>
+              <button
+                type="button"
+                className="m-notice-close"
+                aria-label="Dismiss menu update notice"
+                onClick={() => setCartNotice(null)}
+              >
+                ×
+              </button>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
         {searching ? (
-          <section className="cat-section" aria-label="Search results">
-            <h2>{searchResults.length > 0 ? "Search results" : "Nothing matched"}</h2>
-            <p className="muted">
-              {searchResults.length > 0
-                ? `${searchResults.length} dish${searchResults.length === 1 ? "" : "es"} matching “${search.trim()}”`
-                : `No dishes match “${search.trim()}”. Try a shorter word.`}
-            </p>
+          <motion.section
+            className="m-section"
+            aria-label="Search results"
+            initial={motionPrefs.reduced ? false : "hidden"}
+            animate="show"
+            variants={motionPrefs.hero}
+          >
+            <motion.div className="m-section-head" variants={fadeUp}>
+              <div className="m-section-heading">
+                <span className="m-kicker">Search</span>
+                <h2 className="m-section-title">“{search.trim()}”</h2>
+                <p className="m-section-desc">
+                  {searchResults.length > 0
+                    ? `${searchResults.length} dish${searchResults.length === 1 ? "" : "es"} matched by name, description, or ingredients.`
+                    : "Nothing on tonight’s menu matched that search."}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="m-btn m-btn-ghost"
+                onClick={() => setSearch("")}
+                style={{ minHeight: 40 }}
+              >
+                Clear
+              </button>
+            </motion.div>
+
             {searchResults.length > 0 ? (
-              <div className="dish-grid">
-                {searchResults.map((item) => (
-                  <DishCard
-                    key={item.id}
-                    item={item}
-                    quantity={cart[item.id]?.quantity ?? 0}
-                    onOpen={setSheetItem}
-                    onAdd={(target) => setQty(target, 1)}
-                    onDecrease={(target) => setQty(target, (cart[target.id]?.quantity ?? 0) - 1)}
-                    onIncrease={(target) => setQty(target, (cart[target.id]?.quantity ?? 0) + 1)}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </section>
+              <DishGrid
+                items={searchResults}
+                cart={cart}
+                onOpen={setSheetItem}
+                onSetQuantity={setQty}
+              />
+            ) : (
+              <motion.div className="m-search-empty" variants={fadeUp}>
+                <strong>No dishes found</strong>
+                <span>Try a shorter word, or browse the categories instead.</span>
+              </motion.div>
+            )}
+          </motion.section>
+        ) : menu.categories.length === 0 ? (
+          <div className="m-state-card" style={{ margin: "0 auto" }}>
+            <div className="m-state-icon" aria-hidden="true">
+              <StatusIcon kind="dish" />
+            </div>
+            <h2 className="m-state-title">The menu is being updated</h2>
+            <p className="m-state-body">
+              There are no dishes available right now. Please ask a member of staff for help.
+            </p>
+          </div>
         ) : (
-          menu.categories.map((category) => (
-            <section id={`cat-${category.id}`} key={category.id} className="cat-section">
-              <h2>{category.name}</h2>
-              {category.description ? <p className="muted">{category.description}</p> : null}
-              <div className="dish-grid">
-                {category.items.map((item) => (
-                  <DishCard
-                    key={item.id}
-                    item={item}
-                    quantity={cart[item.id]?.quantity ?? 0}
-                    onOpen={setSheetItem}
-                    onAdd={(target) => setQty(target, 1)}
-                    onDecrease={(target) => setQty(target, (cart[target.id]?.quantity ?? 0) - 1)}
-                    onIncrease={(target) => setQty(target, (cart[target.id]?.quantity ?? 0) + 1)}
-                  />
-                ))}
-              </div>
-            </section>
+          menu.categories.map((category, index) => (
+            <MenuSection
+              key={category.id}
+              category={category}
+              index={index}
+              cart={cart}
+              onOpen={setSheetItem}
+              onSetQuantity={setQty}
+            />
           ))
         )}
-
-        {menu.categories.length === 0 ? (
-          <div className="empty-state">
-            <strong>The menu is not available right now</strong>
-            <span>Please ask a member of staff for help.</span>
-          </div>
-        ) : null}
       </main>
 
-      <CustomerDock
+      <FloatingCart
         itemCount={itemCount}
         subtotal={subtotal}
         currency={menu.currency_code}
@@ -581,23 +665,141 @@ export default function CustomerMenuPage() {
       <Sheet
         open={model3DItem !== null}
         onClose={() => setModel3DItem(null)}
+        surface="menu"
         title={model3DItem ? `${model3DItem.name} in 3D` : "3D view"}
       >
         {model3DItem ? (
           <>
-            <div className={`model-stage ${modelViewerLoaded ? "is-loaded" : ""}`}>
-              <Model3DViewer item={model3DItem} onLoaded={() => setModelViewerLoaded(true)} />
+            <div className={`m-model-stage ${modelViewerLoaded ? "is-loaded" : ""}`}>
+              <Model3DViewer
+                item={model3DItem}
+                onLoaded={() => setModelViewerLoaded(true)}
+                fallbackImage={model3DItem.image_path}
+              />
               {model3DItem.image_path ? (
-                <img className="model-poster" src={model3DItem.image_path} alt="" aria-hidden="true" />
+                <img className="m-model-poster" src={model3DItem.image_path} alt="" aria-hidden="true" />
               ) : null}
             </div>
-            <p className="muted model-hint">Drag to look around · turns to face you automatically</p>
-            <p className="hint">
+            <p className="m-model-hint">Drag to look around · turns to face you automatically</p>
+            <p className="m-sheet-note">
               Illustration only — the plated dish may differ. Ask staff about allergens.
             </p>
           </>
         ) : null}
       </Sheet>
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function MenuSection({
+  category,
+  index,
+  cart,
+  onOpen,
+  onSetQuantity,
+}: {
+  category: MenuCategory;
+  index: number;
+  cart: Cart;
+  onOpen: (item: MenuItem) => void;
+  onSetQuantity: (item: MenuItem, quantity: number) => void;
+}) {
+  return (
+    <section id={`cat-${category.id}`} className="m-section" aria-labelledby={`cat-title-${category.id}`}>
+      <div className="m-section-head">
+        <div className="m-section-heading">
+          <span className="m-kicker">Menu {String(index + 1).padStart(2, "0")}</span>
+          <h2 className="m-section-title" id={`cat-title-${category.id}`}>
+            {category.name}
+          </h2>
+          {category.description ? <p className="m-section-desc">{category.description}</p> : null}
+        </div>
+        <span className="m-section-count" aria-hidden="true">
+          {category.items.length} {category.items.length === 1 ? "dish" : "dishes"}
+        </span>
+      </div>
+
+      {category.items.length > 0 ? (
+        <DishGrid items={category.items} cart={cart} onOpen={onOpen} onSetQuantity={onSetQuantity} />
+      ) : (
+        <p className="m-empty-inline">No dishes in this section right now.</p>
+      )}
+    </section>
+  );
+}
+
+function DishGrid({
+  items,
+  cart,
+  onOpen,
+  onSetQuantity,
+}: {
+  items: MenuItem[];
+  cart: Cart;
+  onOpen: (item: MenuItem) => void;
+  onSetQuantity: (item: MenuItem, quantity: number) => void;
+}) {
+  const motionPrefs = useMenuMotion();
+
+  return (
+    <motion.div
+      className="m-grid"
+      variants={motionPrefs.grid}
+      initial={motionPrefs.reduced ? false : "hidden"}
+      whileInView="show"
+      viewport={{ once: true, margin: "-48px" }}
+    >
+      {items.map((item) => (
+        <DishCard
+          key={item.id}
+          item={item}
+          quantity={cart[item.id]?.quantity ?? 0}
+          onOpen={onOpen}
+          onAdd={(target) => onSetQuantity(target, 1)}
+          onDecrease={(target) => onSetQuantity(target, (cart[target.id]?.quantity ?? 0) - 1)}
+          onIncrease={(target) => onSetQuantity(target, (cart[target.id]?.quantity ?? 0) + 1)}
+        />
+      ))}
+    </motion.div>
+  );
+}
+
+function StatusIcon({ kind }: { kind: "expired" | "lock" | "wifi" | "dish" }) {
+  if (kind === "expired") {
+    return (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
+        <path d="M12 7.5V12l3 2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (kind === "lock") {
+    return (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="5" y="10" width="14" height="10" rx="2.5" stroke="currentColor" strokeWidth="1.7" />
+        <path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10" stroke="currentColor" strokeWidth="1.7" />
+      </svg>
+    );
+  }
+  if (kind === "dish") {
+    return (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 16h16M6 16a6 6 0 0 1 12 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <path d="M3 20h18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 9a12 12 0 0 1 16 0M7 12.5a8 8 0 0 1 10 0M10 16a4 4 0 0 1 4 0"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="19" r="1.2" fill="currentColor" />
+    </svg>
   );
 }

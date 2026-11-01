@@ -24,7 +24,7 @@ function statusCopy(status: string): { title: string; body: string } {
     };
   }
   if (status === "COMPLETED") {
-    return { title: "Served", body: "This order has been completed. We hope you enjoyed it." };
+    return { title: "Served", body: "Every course has been delivered. Your bill is ready to settle below." };
   }
   if (status === "CANCELLED") {
     return { title: "Cancelled", body: "This order has been cancelled." };
@@ -105,6 +105,7 @@ export default function CustomerStatusPage() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [rated, setRated] = useState(false);
+  const [billAutoAttempted, setBillAutoAttempted] = useState(false);
 
   const load = useCallback(async () => {
     if (!statusToken) return;
@@ -140,6 +141,15 @@ export default function CustomerStatusPage() {
       setBillLoading(false);
     }
   }
+
+  // Auto-surface the bill once the order is served/completed so the guest does
+  // not have to press "View bill" to see the total and itemized order.
+  useEffect(() => {
+    if (order?.status === "COMPLETED" && !bill && !billLoading && !billAutoAttempted) {
+      setBillAutoAttempted(true);
+      void loadBill();
+    }
+  }, [order?.status, bill, billLoading, billAutoAttempted]);
 
   async function cancelOrder() {
     if (!statusToken) return;
