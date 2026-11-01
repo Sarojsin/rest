@@ -12,6 +12,7 @@ const CAPABILITY_LABELS: Record<string, string> = {
   "orders.create": "Take orders",
   "orders.read": "Read orders",
   "orders.confirm_qr": "Confirm QR orders",
+  "orders.serve": "Serve ready food to guests",
   "kitchen.read": "Read kitchen tickets",
   "kitchen.update": "Move kitchen items",
   "tables.manage": "Manage tables",

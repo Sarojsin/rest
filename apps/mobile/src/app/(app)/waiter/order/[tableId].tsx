@@ -46,6 +46,8 @@ export default function TakeOrderScreen() {
   const table = useTable(tableId);
   const menu = useMenu();
   const accepted = useOrders("ACCEPTED", { refetchInterval: 15_000 });
+  const tickets = useTickets();
+  const serveItem = useServeItem();
   const createOrder = useCreateOrder();
 
   const [draft, setDraft] = useState<Draft>({});
@@ -53,8 +55,20 @@ export default function TakeOrderScreen() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [servingItemId, setServingItemId] = useState<string | null>(null);
   // One key per draft: a retry after a timeout must not create a second order.
   const idempotencyKey = useRef(newIdempotencyKey());
+
+  // Map order item id -> kitchen ticket item (for serve actions + status).
+  const kitchenByOrderItem = useMemo(() => {
+    const map = new Map<string, { itemId: string; status: string }>();
+    for (const ticket of tickets.data ?? []) {
+      for (const item of ticket.items) {
+        map.set(item.order_item_id, { itemId: item.id, status: item.status });
+      }
+    }
+    return map;
+  }, [tickets.data]);
 
   const lines = useMemo(
     () => Object.values(draft).filter((line) => line.quantity > 0),
@@ -199,22 +213,94 @@ export default function TakeOrderScreen() {
             <Text style={{ fontSize: text.xs, fontWeight: "700", color: c.muted }}>
               ALREADY ON THIS TABLE
             </Text>
-            {tableOrders.map((order) => (
-              <Card key={order.id} style={{ paddingVertical: space[3] }}>
-                <View
-                  style={{ flexDirection: "row", justifyContent: "space-between", gap: space[3] }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: text.base, fontWeight: "700", color: c.ink }}>
-                      {order.items.reduce((total, item) => total + item.quantity, 0)} items ·{" "}
-                      {elapsed(order.accepted_at ?? order.submitted_at, now)} ago
-                    </Text>
-                    <Muted>{order.items.map((item) => item.item_name_snapshot).join(", ")}</Muted>
+            {tableOrders.map((order) => {
+              const totalQty = order.items.reduce((total, item) => total + item.quantity, 0);
+              return (
+                <Card key={order.id} style={{ paddingVertical: space[3] }}>
+                  <View style={{ gap: space[2] }}>
+                    <View
+                      style={{ flexDirection: "row", justifyContent: "space-between", gap: space[3] }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: text.base, fontWeight: "700", color: c.ink }}>
+                          {totalQty} item{totalQty === 1 ? "" : "s"} ·{" "}
+                          {elapsed(order.accepted_at ?? order.submitted_at, now)} ago
+                        </Text>
+                        <Muted>
+                          {order.items.map((item) => item.item_name_snapshot).join(", ")}
+                        </Muted>
+                      </View>
+                      <Badge status={order.status} />
+                    </View>
+
+                    <View style={{ gap: space[1] }}>
+                      {order.items.map((item) => {
+                        const kitchen = kitchenByOrderItem.get(item.id);
+                        const kitchenStatus = kitchen?.status ?? "NEW";
+                        const ready = kitchenStatus === "READY";
+                        const served = kitchenStatus === "SERVED";
+                        return (
+                          <View
+                            key={item.id}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: space[2],
+                              paddingVertical: space[1],
+                            }}
+                          >
+                            <Text
+                              style={{
+                                flex: 1,
+                                fontSize: text.sm,
+                                color: served ? c.success : c.ink,
+                              }}
+                            >
+                              {item.quantity}× {item.item_name_snapshot}
+                            </Text>
+                            {ready ? (
+                              <Button
+                                label="Mark served"
+                                variant="success"
+                                fullWidth={false}
+                                loading={servingItemId === kitchen!.itemId}
+                                onPress={() => {
+                                  if (!kitchen) return;
+                                  setServingItemId(kitchen.itemId);
+                                  serveItem.mutate(kitchen.itemId, {
+                                    onSuccess: () => {
+                                      setNotice(
+                                        `${item.item_name_snapshot} served — the order completes once every course is delivered.`
+                                      );
+                                      setServingItemId(null);
+                                    },
+                                    onError: (err) => {
+                                      Alert.alert(
+                                        "Could not mark served",
+                                        err instanceof ApiError ? err.detail : "Try again."
+                                      );
+                                      setServingItemId(null);
+                                    },
+                                  });
+                                }}
+                              />
+                            ) : served ? (
+                              <Text style={{ fontSize: text.xs, fontWeight: "700", color: c.success }}>
+                                Served
+                              </Text>
+                            ) : (
+                              <Text style={{ fontSize: text.xs, color: c.muted }}>
+                                {kitchenStatus === "PREPARING" ? "Cooking" : "On the ticket"}
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
                   </View>
-                  <Badge status={order.status} />
-                </View>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </View>
         ) : null}
 

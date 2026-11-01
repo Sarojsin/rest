@@ -18,7 +18,7 @@ import {
   Subtitle,
   Title,
 } from "@/components/ui";
-import { useCallWaiter, useSetItemStatus, useTickets } from "@/features/kitchen/api";
+import { useAcknowledgeServiceCall, useCallWaiter, useServiceCalls, useSetItemStatus, useTickets } from "@/features/kitchen/api";
 import { useTableNames } from "@/features/tables/api";
 import { ApiError } from "@/lib/api";
 import { elapsed, isLate } from "@/lib/format";
@@ -64,6 +64,8 @@ export default function KitchenBoardScreen() {
   const tickets = useTickets();
   const setStatus = useSetItemStatus();
   const callWaiter = useCallWaiter();
+  const serviceCalls = useServiceCalls();
+  const acknowledge = useAcknowledgeServiceCall();
 
   const [activeColumn, setActiveColumn] = useState<ColumnKey>("NEW");
   const [error, setError] = useState<string | null>(null);
@@ -133,6 +135,56 @@ export default function KitchenBoardScreen() {
 
         {error ? <Banner tone="danger">{error}</Banner> : null}
         {notice ? <Banner tone="success">{notice}</Banner> : null}
+
+        {serviceCalls.data && serviceCalls.data.length > 0 ? (
+          <Card style={{ padding: space[3], gap: space[2] }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontSize: text.sm, fontWeight: "800", color: c.ink }}>
+                Pending service calls
+              </Text>
+              <Badge status="REQUESTED" />
+            </View>
+            {serviceCalls.data.map((call) => (
+              <View
+                key={call.id}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: space[3],
+                  paddingVertical: space[2],
+                  borderTopWidth: 1,
+                  borderTopColor: c.line,
+                }}
+              >
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontSize: text.base, fontWeight: "700", color: c.ink }}>
+                    {call.kind === "KITCHEN" ? "Food ready" : "Guest calls waiter"} ·{" "}
+                    {call.table_display_name}
+                  </Text>
+                  {call.ticket_number ? (
+                    <Muted>Ticket {call.ticket_number}</Muted>
+                  ) : null}
+                  {call.items_summary ? (
+                    <Muted>{call.items_summary}</Muted>
+                  ) : null}
+                </View>
+                <Button
+                  label="Acknowledge"
+                  variant="secondary"
+                  fullWidth={false}
+                  loading={acknowledge.isPending}
+                  onPress={() =>
+                    acknowledge.mutate(call.id, {
+                      onSuccess: () => setNotice(`Service call acknowledged for ${call.table_display_name}.`),
+                      onError: (err) =>
+                        setError(err instanceof ApiError ? err.detail : "Could not acknowledge."),
+                    })
+                  }
+                />
+              </View>
+            ))}
+          </Card>
+        ) : null}
 
         {!wide ? (
           <View
