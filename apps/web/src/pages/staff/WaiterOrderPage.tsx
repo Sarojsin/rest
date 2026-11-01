@@ -9,13 +9,17 @@ import {
   type MenuItem,
   type Order,
   type Table,
+  type KitchenTicket,
 } from "../../lib/api";
 import { StatusBadge } from "../../components/StatusBadge";
+import { useAuth } from "../../lib/auth";
 
 type Cart = Record<string, { item: MenuItem; quantity: number }>;
 
 export default function WaiterOrderPage() {
   const { tableId } = useParams();
+  const { has: canServe } = useAuth();
+  const canMarkServed = canServe("orders.serve");
   const [table, setTable] = useState<Table | null>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [cart, setCart] = useState<Cart>({});
@@ -25,6 +29,9 @@ export default function WaiterOrderPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey());
+  const [tickets, setTickets] = useState<KitchenTicket[]>([]);
+  const [servingItemId, setServingItemId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +47,18 @@ export default function WaiterOrderPage() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    // Fetch kitchen tickets for this table so waiters can mark items served
+    if (tableId) {
+      apiFetch<KitchenTicket[]>(`/api/v1/kitchen/tickets?table_id=${tableId}`).then(
+        (data) => {
+          if (cancelled) return;
+          setTickets(data);
+        },
+        (err) => {
+          if (!cancelled) setError(err instanceof ApiError ? err.detail : "Could not load tickets.");
+        },
+      );
+    }
     return () => {
       cancelled = true;
     };
@@ -89,12 +108,41 @@ export default function WaiterOrderPage() {
     }
   }
 
+  async function markServed(itemId: string) {
+    if (!canMarkServed) {
+      setError("Only waiters, managers, and owners can mark items served.");
+      return;
+    }
+    setServingItemId(itemId);
+    setError(null);
+    setNotice(null);
+    try {
+      await apiFetch<KitchenTicket>(
+        `/api/v1/kitchen/ticket-items/${itemId}/status`,
+        {
+          method: "POST",
+          body: JSON.stringify({ status: "SERVED" }),
+        }
+      );
+      setNotice(`Item marked as served — the order completes once every course is delivered.`);
+      // Refresh tickets
+      if (tableId) {
+        const refreshed = await apiFetch<KitchenTicket[]>(`/api/v1/kitchen/tickets?table_id=${tableId}`);
+        setTickets(refreshed);
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : "Could not mark served.");
+    } finally {
+      setServingItemId(null);
+    }
+  }
+
   return (
     <div className="page">
       <div className="page-header">
         <div>
           <p className="kicker">
-            <Link to="/staff/tables">Floor</Link> · New order
+            <Link to="/staff/tables">Floor</Link> · {canMarkServed ? "Serve & Order" : "New order"}
           </p>
           <h1 className="page-title">{table?.display_name ?? "Table"}</h1>
           <p className="page-sub">
@@ -116,7 +164,71 @@ export default function WaiterOrderPage() {
         </div>
       ) : null}
       {message ? <div className="notice">{message}</div> : null}
+      {notice ? <div className="notice">{notice}</div> : null}
       {loading ? <p className="muted">Loading menu…</p> : null}
+
+      {/* SERVED Section — only for waiters/managers/owners */}
+      {canMarkServed && tickets.length > 0 ? (
+        <section className="menu-category" style={{ marginBottom: "var(--space-4)" }}>
+          <div className="menu-category-head">
+            <h3>Kitchen Tickets — Mark Served</h3>
+            <span className="muted text-sm">
+              {tickets.length} ticket{tickets.length === 1 ? "" : "s"} open
+            </span>
+          </div>
+          {tickets.map((ticket) => (
+            <div
+              key={ticket.id}
+              style={{
+                marginBottom: "var(--space-3)",
+                paddingBottom: "var(--space-3)",
+                borderBottomWidth: "1px",
+                borderBottomColor: "var(--border)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)" }}>
+                <span>
+                  <strong>Ticket #{ticket.ticket_number}</strong> · {ticket.table_display_name || "Table"} · {ticket.status}
+                </span>
+              </div>
+              {ticket.items.map((item) => {
+                const kitchenStatus = item.status ?? "NEW";
+                const ready = kitchenStatus === "READY";
+                const served = kitchenStatus === "SERVED";
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--space-2)",
+                      paddingTop: "var(--space-1)",
+                      paddingBottom: "var(--space-1)",
+                    }}
+                  >
+                    <span style={{ flex: 1, fontWeight: 700 }}>
+                      {item.quantity_snapshot}× {item.item_name || "Item"}
+                    </span>
+                    <span className="muted text-sm">
+                      {served ? "Served" : ready ? "Ready" : kitchenStatus === "PREPARING" ? "Cooking" : "Not started"}
+                    </span>
+                    {ready && !served ? (
+                      <button
+                        className="btn ok btn-sm"
+                        type="button"
+                        disabled={servingItemId === item.id}
+                        onClick={() => void markServed(item.id)}
+                      >
+                        {servingItemId === item.id ? "Serving…" : "Mark served"}
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       <form onSubmit={submit} className="order-layout">
         <div className="stack">

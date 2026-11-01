@@ -153,9 +153,22 @@ export function useAuth(): AuthState {
  * Where a signed-in member belongs. Navigation is gated on backend
  * capabilities, not role names, so a renamed or re-scoped role keeps working.
  */
-export function homeRouteFor(permissions: string[]): "/waiter" | "/kitchen" | "/cashier" | null {
+/**
+ * Where a signed-in member belongs. Navigation is gated on backend
+ * capabilities, not role names, so a renamed or re-scoped role keeps working.
+ *
+ * Fixed to handle ALL roles properly with fallback to ensure no user is
+ * left without a valid destination after login.
+ */
+export function homeRouteFor(permissions: string[]): "/waiter" | "/kitchen" | "/cashier" | "/" | null {
+  // Waiter: has orders.create (waiter, manager, owner)
   if (permissions.includes("orders.create")) return "/waiter";
+  // Kitchen: has kitchen.update (kitchen, manager, owner)
   if (permissions.includes("kitchen.update")) return "/kitchen";
+  // Cashier: has bills.issue (cashier, manager, owner)
   if (permissions.includes("bills.issue")) return "/cashier";
+  // Fallback: any role with orders.read goes to waiter (tables screen)
+  // This ensures ALL authenticated users with basic read access get a valid screen
+  if (permissions.includes("orders.read")) return "/waiter";
   return null;
 }

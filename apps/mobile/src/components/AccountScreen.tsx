@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useState } from "react";
 import { View, Text } from "react-native";
 
@@ -35,6 +36,10 @@ export function AccountScreen() {
   const [busy, setBusy] = useState(false);
 
   if (!me) return null;
+
+  const isManagerOrOwner = me.membership.permissions.includes("staff.manage") || me.membership.permissions.includes("menu.manage");
+  const hasKitchen = me.membership.permissions.includes("kitchen.update");
+  const hasCashier = me.membership.permissions.includes("bills.issue");
 
   const initials = me.display_name
     .split(/\s+/)
@@ -119,6 +124,41 @@ export function AccountScreen() {
             Sales reports, menu management, and payment settings are in the staff website. This app
             covers the floor, kitchen, and cashier.
           </Banner>
+        ) : null}
+
+        {isManagerOrOwner ? (
+          <View style={{ gap: space[2] }}>
+            <SectionLabel>Switch station</SectionLabel>
+            <Card>
+              <View style={{ gap: space[2] }}>
+                {hasKitchen ? (
+                  <Button
+                    label="Kitchen board"
+                    variant="secondary"
+                    icon="restaurant-outline"
+                    onPress={() => router.replace("/kitchen")}
+                  />
+                ) : null}
+                {hasCashier ? (
+                  <Button
+                    label="Cashier checkout"
+                    variant="secondary"
+                    icon="card-outline"
+                    onPress={() => router.replace("/cashier")}
+                  />
+                ) : null}
+                <Button
+                  label="Floor / tables"
+                  variant="secondary"
+                  icon="grid-outline"
+                  onPress={() => router.replace("/waiter")}
+                />
+              </View>
+            </Card>
+            <Text style={{ fontSize: text.xs, color: c.muted }}>
+              Managers and owners can work any station. Tap to switch.
+            </Text>
+          </View>
         ) : null}
 
         <Button

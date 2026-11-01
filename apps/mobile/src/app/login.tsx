@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Banner, Button, Field } from "@/components/ui";
 import { ApiError } from "@/lib/api";
+import { API_BASE_URL, IS_DEV } from "@/lib/config";
 import { homeRouteFor, useAuth } from "@/lib/auth";
 import { useTheme } from "@/theme/context";
 import { radius, space, text } from "@/theme/tokens";
@@ -142,6 +143,37 @@ export default function LoginScreen() {
           >
             Guests never need an account — they scan the table QR code.
           </Text>
+          {IS_DEV ? (
+            <View
+              style={{
+                backgroundColor: c.surface,
+                borderColor: c.line,
+                borderWidth: 1,
+                borderRadius: radius.md,
+                padding: space[3],
+                gap: space[1],
+              }}
+            >
+              <Text style={{ fontSize: text.xs, fontWeight: "700", color: c.ink }}>
+                Test accounts (dev only):
+              </Text>
+              <Text style={{ fontSize: text.xs, color: c.muted }}>
+                owner@harbor.example / HarborOwner!1
+              </Text>
+              <Text style={{ fontSize: text.xs, color: c.muted }}>
+                manager@harbor.example / HarborManager!1
+              </Text>
+              <Text style={{ fontSize: text.xs, color: c.muted }}>
+                waiter@harbor.example / HarborWaiter!1
+              </Text>
+              <Text style={{ fontSize: text.xs, color: c.muted }}>
+                kitchen@harbor.example / HarborKitchen!1
+              </Text>
+              <Text style={{ fontSize: text.xs, color: c.muted }}>
+                cashier@harbor.example / HarborCashier!1
+              </Text>
+            </View>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

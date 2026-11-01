@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
+import { useAudioPlayer } from "expo-audio";
 
 import type { MenuItem } from "@rest/api-client";
 import { newIdempotencyKey } from "@rest/api-client";
@@ -42,6 +43,9 @@ export default function TakeOrderScreen() {
   const theme = useTheme();
   const c = theme.color;
   const now = useNow(30_000);
+
+  // Load notification sound
+  const player = useAudioPlayer(require("../../../../../assets/notification.wav"));
 
   const table = useTable(tableId);
   const menu = useMenu();
@@ -266,6 +270,7 @@ export default function TakeOrderScreen() {
                                 loading={servingItemId === kitchen!.itemId}
                                 onPress={() => {
                                   if (!kitchen) return;
+                                  player.play();
                                   setServingItemId(kitchen.itemId);
                                   serveItem.mutate(kitchen.itemId, {
                                     onSuccess: () => {
