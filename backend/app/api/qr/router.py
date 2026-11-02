@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -19,21 +19,9 @@ from app.modules.service_calls.schemas import PublicServiceCallOut
 from app.modules.service_calls.services import service_calls as service_call_service
 from app.modules.tenancy.models import Restaurant
 from app.shared.errors import AppError
+from app.shared.idempotency import idempotency_key
 
 router = APIRouter(prefix="/public", tags=["public"])
-
-
-def _idempotency_key(
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-) -> str:
-    if not idempotency_key or len(idempotency_key) < 8:
-        raise AppError(
-            400,
-            "IDEMPOTENCY_KEY_REQUIRED",
-            "Idempotency key required",
-            "Provide an Idempotency-Key header of at least 8 characters.",
-        )
-    return idempotency_key
 
 
 @router.get("/qr/{qr_token}/menu", response_model=PublicMenuOut)
@@ -47,7 +35,7 @@ def submit_qr_order(
     qr_token: str,
     payload: SubmitQrOrderRequest,
     db: Session = Depends(get_db),
-    idempotency_key: str = Depends(_idempotency_key),
+    idempotency_key: str = Depends(idempotency_key),
 ) -> SubmitQrOrderResponse:
     order, status_token = order_service.submit_qr_order(
         db,

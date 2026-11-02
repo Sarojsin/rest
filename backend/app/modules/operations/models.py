@@ -14,6 +14,7 @@ class RestaurantTable(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     restaurant_id: Mapped[UUID] = mapped_column(ForeignKey("restaurants.id"), nullable=False)
+    branch_id: Mapped[UUID] = mapped_column(ForeignKey("restaurants.id"), nullable=False)
     table_code: Mapped[str] = mapped_column(String(32), nullable=False)
     display_name: Mapped[str] = mapped_column(String(80), nullable=False)
     seating_capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)

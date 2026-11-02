@@ -31,6 +31,7 @@ class TableCreate(BaseModel):
     display_name: str = Field(min_length=1, max_length=80)
     seating_capacity: int | None = Field(default=None, ge=1, le=40)
     sort_order: int | None = None
+    branch_id: UUID | None = Field(default=None, description="Branch ID; defaults to restaurant_id")
 
 
 class TableUpdate(BaseModel):

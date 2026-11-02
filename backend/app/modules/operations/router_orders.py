@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import Actor, require_permission
-from app.api.idempotency import idempotency_key
 from app.db.session import get_db
 from app.modules.operations.schemas import CreateWaiterOrderRequest, OrderOut, RejectOrderRequest
 from app.modules.operations.services import orders as order_service
+from app.shared.idempotency import idempotency_key
 
 router = APIRouter(tags=["orders"])
 

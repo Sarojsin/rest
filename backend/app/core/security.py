@@ -8,6 +8,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
 from app.core.config import settings
+from app.shared.errors import AppError
 
 password_hasher = PasswordHasher()
 
@@ -31,12 +32,15 @@ def new_token(nbytes: int = 32) -> str:
     return secrets.token_urlsafe(nbytes)
 
 
-def create_access_token(*, user_id: UUID, membership_id: UUID, restaurant_id: UUID) -> str:
+def create_access_token(
+    *, user_id: UUID, membership_id: UUID, restaurant_id: UUID, tenant_id: UUID | None = None
+) -> str:
     expires = datetime.now(UTC) + timedelta(minutes=settings.access_token_minutes)
     payload = {
         "sub": str(user_id),
         "mid": str(membership_id),
         "rid": str(restaurant_id),
+        "tenant_id": str(tenant_id) if tenant_id else None,
         "exp": expires,
         "iat": datetime.now(UTC),
     }
@@ -44,4 +48,17 @@ def create_access_token(*, user_id: UUID, membership_id: UUID, restaurant_id: UU
 
 
 def decode_access_token(token: str) -> dict:
-    return jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        # Validate that the token has required claims
+        if "sub" not in payload or "mid" not in payload or "rid" not in payload:
+            raise jwt.InvalidTokenError("Missing required claims in token")
+        return payload
+    except jwt.ExpiredSignatureError as exc:
+        raise AppError(
+            401, "TOKEN_EXPIRED", "Unauthorized", "Session expired. Sign in again."
+        ) from exc
+    except jwt.InvalidTokenError as exc:
+        raise AppError(
+            401, "INVALID_TOKEN", "Unauthorized", "Authentication is required."
+        ) from exc

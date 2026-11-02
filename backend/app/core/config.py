@@ -7,7 +7,11 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_name: str = "Restaurant Management API"
     secret_key: str = "dev-only-change-me-not-for-production"
-    database_url: str = "sqlite:///./data/restaurant.db"
+    # D12 (plan 01/03): Postgres-first. The default is the docker-compose
+    # dev instance (docker-compose.yml: rest/rest/restaurant on host 5433).
+    # SQLite is NOT part of the migration path anymore (no RLS); override
+    # via DATABASE_URL only for throwaway local experiments.
+    database_url: str = "postgresql://rest:rest@localhost:5433/restaurant"
     access_token_minutes: int = 480
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     tax_rate_bps: int = 1000

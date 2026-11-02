@@ -162,6 +162,7 @@ def seed_if_empty(db: Session) -> None:
     for index, code in enumerate(["T1", "T2", "T3", "T4", "T5", "T6"], start=1):
         table = RestaurantTable(
             restaurant_id=restaurant.id,
+            branch_id=restaurant.id,
             table_code=code,
             display_name=f"Table {index}",
             seating_capacity=4 if index < 6 else 6,
@@ -176,7 +177,7 @@ def seed_if_empty(db: Session) -> None:
                 restaurant_id=restaurant.id,
                 table_id=table.id,
                 token_hash=hash_token(raw),
-                token_preview=raw,
+                token_preview=raw[:16],  # preview column is varchar(16); PG enforces it
                 status="ACTIVE",
             )
         )

@@ -4,12 +4,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import Actor, require_permission
-from app.api.idempotency import idempotency_key
 from app.db.session import get_db
 from app.modules.billing.schemas import BillOut
 from app.modules.billing.services import billing as billing_service
 from app.modules.payments.schemas import RecordPaymentRequest
 from app.shared.errors import AppError
+from app.shared.idempotency import idempotency_key
 
 router = APIRouter(tags=["bills"])
 

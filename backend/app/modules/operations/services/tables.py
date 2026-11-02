@@ -147,7 +147,7 @@ def _issue_qr(db: Session, restaurant_id: UUID, table: RestaurantTable) -> str:
             restaurant_id=restaurant_id,
             table_id=table.id,
             token_hash=hash_token(raw),
-            token_preview=raw,
+            token_preview=raw[:16],  # preview column is varchar(16); PG enforces it
             status="ACTIVE",
         )
     )
@@ -203,6 +203,7 @@ def create_table(db: Session, membership: RestaurantMembership, payload: TableCr
 
     table = RestaurantTable(
         restaurant_id=membership.restaurant_id,
+        branch_id=membership.restaurant_id,
         table_code=code,
         display_name=payload.display_name.strip(),
         seating_capacity=payload.seating_capacity,

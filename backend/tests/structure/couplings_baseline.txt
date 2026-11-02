@@ -1,0 +1,43 @@
+# Frozen cross-module import inventory — Phase 0 baseline (D14, plan 02 §2.1, 18 §3)
+#
+# Format: <source-module> -> <target-module> : <imported-part>
+#
+# These couplings are KNOWN DEBT of the single-tenant codebase immediately
+# after the Phase 0 restructure. M1–M6 progressively drain them (module
+# ownership of tables per plan 03 §4; cross-module reads go via owning
+# module public service interfaces per 02 §2.1).
+#
+# RULE: this inventory may only SHRINK. A growing set fails
+# tests/structure/test_boundaries.py, which blocks merges.
+billing -> audit : services
+billing -> notifications : services
+billing -> operations : models
+billing -> payments : models
+billing -> payments : schemas
+billing -> tenancy : models
+catalog -> operations : models
+catalog -> tenancy : models
+identity -> tenancy : models
+identity -> tenancy : permissions
+kitchen -> audit : services
+kitchen -> notifications : services
+kitchen -> operations : models
+kitchen -> service_calls : models
+kitchen -> tenancy : models
+operations -> audit : services
+operations -> catalog : models
+operations -> kitchen : models
+operations -> notifications : services
+operations -> tenancy : models
+payments -> audit : services
+payments -> tenancy : models
+reports -> audit : models
+reports -> operations : models
+reports -> payments : models
+reports -> tenancy : models
+service_calls -> audit : services
+service_calls -> kitchen : models
+service_calls -> notifications : services
+service_calls -> operations : models
+service_calls -> operations : services.orders
+service_calls -> tenancy : models

@@ -35,3 +35,56 @@ select = ["E", "F", "I", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.importlinter]
+root_package = "app"
+include_external_packages = false
+
+# (plan 02 §2.1, 21 §10.2) Layering: shared kernel beneath modules; modules
+# may never import app.api (api composes modules, not the reverse) — the
+# router files inside modules are the only sanctioned composition touchpoints.
+[[tool.importlinter.contracts]]
+name = "shared kernel has zero domain logic (no module imports from modules)"
+type = "forbidden"
+source_modules = ["app.shared"]
+forbidden_modules = ["app.modules", "app.api"]
+
+[[tool.importlinter.contracts]]
+name = "api is a composition layer; only module routers may touch app.api"
+type = "forbidden"
+source_modules = ["app.modules"]
+forbidden_modules = ["app.api"]
+ignore_imports = [
+    "app.modules.identity.router -> app.api.deps",
+    "app.modules.tenancy.router -> app.api.deps",
+    "app.modules.catalog.router -> app.api.deps",
+    "app.modules.operations.router_orders -> app.api.deps",
+    "app.modules.operations.router_tables -> app.api.deps",
+    "app.modules.billing.router -> app.api.deps",
+    "app.modules.payments.router -> app.api.deps",
+    "app.modules.kitchen.router -> app.api.deps",
+    "app.modules.service_calls.router -> app.api.deps",
+    "app.modules.reports.router -> app.api.deps",
+]
+
+# workers contract: see below.
+
+[[tool.importlinter.contracts]]
+name = "workers scheduler touches modules only through public service interfaces"
+type = "forbidden"
+source_modules = ["app.workers"]
+forbidden_modules = [
+    "app.modules.audit.models",
+    "app.modules.billing.models",
+    "app.modules.catalog.models",
+    "app.modules.identity.models",
+    "app.modules.kitchen.models",
+    "app.modules.notifications.models",
+    "app.modules.operations.models",
+    "app.modules.payments.models",
+    "app.modules.reports.models",
+    "app.modules.service_calls.models",
+    "app.modules.tenancy.models",
+]
+
+# NOTE on cross-module edges: the frozen Phase 0 inventory of pre-existing
