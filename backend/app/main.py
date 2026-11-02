@@ -1,21 +1,20 @@
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
+from sqlalchemy.exc import OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+import app.modules  # noqa: F401
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.errors import AppError, app_error_handler, http_error_handler, problem_body
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.seed import bootstrap_production, seed_if_empty
-
-import app.models  # noqa: F401
-from pathlib import Path
-from sqlalchemy.exc import OperationalError
+from app.shared.errors import AppError, app_error_handler, http_error_handler, problem_body
 
 
 def create_app() -> FastAPI:
@@ -37,7 +36,11 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=422,
             content=problem_body(
-                request, 422, "VALIDATION_ERROR", "Validation error", "The request failed validation."
+                request,
+                422,
+                "VALIDATION_ERROR",
+                "Validation error",
+                "The request failed validation.",
             ),
             media_type="application/problem+json",
         )
@@ -49,7 +52,11 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=422,
             content=problem_body(
-                request, 422, "VALIDATION_ERROR", "Validation error", "The request failed validation."
+                request,
+                422,
+                "VALIDATION_ERROR",
+                "Validation error",
+                "The request failed validation.",
             ),
             media_type="application/problem+json",
         )
@@ -95,10 +102,13 @@ def on_startup() -> None:
         db_check = SessionLocal()
         try:
             try:
-                stamp = db_check.execute(text("SELECT version_num FROM alembic_version")).scalar_one_or_none()
+                stamp = db_check.execute(
+                    text("SELECT version_num FROM alembic_version")
+                ).scalar_one_or_none()
             except OperationalError as exc:
                 raise RuntimeError(
-                    "Database is not migrated (alembic_version not found). Run: alembic upgrade head"
+                    "Database is not migrated (alembic_version not found). "
+                    "Run: alembic upgrade head"
                 ) from exc
             if stamp != head:
                 raise RuntimeError(

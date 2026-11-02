@@ -4,10 +4,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, hash_token
-from app.models.identity import Restaurant, RestaurantMembership, RestaurantSettings, User
-from app.models.billing import PaymentMethodConfig
-from app.models.menu import MenuCategory, MenuItem
-from app.models.tables import RestaurantTable, TableQrCode
+from app.modules.catalog.models import MenuCategory, MenuItem
+from app.modules.identity.models import User
+from app.modules.operations.models import RestaurantTable, TableQrCode
+from app.modules.payments.models import PaymentMethodConfig
+from app.modules.tenancy.models import Restaurant, RestaurantMembership, RestaurantSettings
 
 if TYPE_CHECKING:
     from app.core.config import Settings
@@ -103,7 +104,13 @@ MENU = [
 DEFAULT_PAYMENT_METHODS = [
     ("Cash", "CASH", "", "Collect cash and count the tender before recording.", 0),
     ("eSewa", "QR", "eSewa merchant", "Scan with the eSewa app and pay the exact bill total.", 1),
-    ("IME Pay", "QR", "IME Pay merchant", "Scan with the IME Pay app and pay the exact bill total.", 2),
+    (
+        "IME Pay",
+        "QR",
+        "IME Pay merchant",
+        "Scan with the IME Pay app and pay the exact bill total.",
+        2,
+    ),
     ("Bank Transfer", "QR", "", "Transfer to our bank account and show the receipt.", 3),
 ]
 

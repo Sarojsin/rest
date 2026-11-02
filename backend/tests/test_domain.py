@@ -1,9 +1,10 @@
 import pytest
 
-from app.core.errors import AppError
-from app.domain.enums import KitchenItemStatus, OrderStatus
-from app.domain.transitions import assert_kitchen_item_transition, assert_order_transition
-from app.services.money import line_amounts
+from app.modules.kitchen.transitions import assert_kitchen_item_transition
+from app.modules.operations.transitions import assert_order_transition
+from app.shared.enums import KitchenItemStatus, OrderStatus
+from app.shared.errors import AppError
+from app.shared.money import line_amounts
 
 
 def test_qr_order_cannot_skip_confirmation() -> None:

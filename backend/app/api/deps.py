@@ -6,11 +6,12 @@ from fastapi import Depends, Header
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.errors import AppError
 from app.core.security import decode_access_token
 from app.db.session import get_db
-from app.domain.permissions import ROLE_PERMISSIONS
-from app.models.identity import RestaurantMembership, User
+from app.modules.identity.models import User
+from app.modules.tenancy.models import RestaurantMembership
+from app.modules.tenancy.permissions import ROLE_PERMISSIONS
+from app.shared.errors import AppError
 
 
 class Actor:
@@ -28,7 +29,9 @@ class Actor:
 
     def require(self, permission: str) -> None:
         if permission not in self.permissions:
-            raise AppError(403, "FORBIDDEN", "Forbidden", "You do not have permission for this action.")
+            raise AppError(
+                403, "FORBIDDEN", "Forbidden", "You do not have permission for this action."
+            )
 
 
 def get_actor(
@@ -41,7 +44,9 @@ def get_actor(
     try:
         payload = decode_access_token(token)
     except jwt.ExpiredSignatureError as exc:
-        raise AppError(401, "TOKEN_EXPIRED", "Unauthorized", "Session expired. Sign in again.") from exc
+        raise AppError(
+            401, "TOKEN_EXPIRED", "Unauthorized", "Session expired. Sign in again."
+        ) from exc
     except jwt.InvalidTokenError as exc:
         raise AppError(401, "INVALID_TOKEN", "Unauthorized", "Authentication is required.") from exc
 

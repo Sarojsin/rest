@@ -182,9 +182,7 @@ def test_kitchen_call_waiter_signals_service(client: TestClient) -> None:
     assert ticket["table_display_name"]  # still resolved server-side for waiter-facing UI
 
     # Kitchen presses "Call waiter": items go READY, a KITCHEN service call is born.
-    signaled = client.post(
-        f"/api/v1/kitchen/tickets/{ticket['id']}/call-waiter", headers=kitchen
-    )
+    signaled = client.post(f"/api/v1/kitchen/tickets/{ticket['id']}/call-waiter", headers=kitchen)
     assert signaled.status_code == 200, signaled.text
     body = signaled.json()
     assert body["status"] == "READY"

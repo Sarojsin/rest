@@ -183,10 +183,14 @@ def test_update_table_fields(client: TestClient) -> None:
     assert body["table_code"] == "EDIT-1"  # code never changes
 
     # Unknown fields rejected, invalid status rejected
-    bad_status = client.patch(f"/api/v1/tables/{created['id']}", json={"status": "ARCHIVED"}, headers=headers)
+    bad_status = client.patch(
+        f"/api/v1/tables/{created['id']}", json={"status": "ARCHIVED"}, headers=headers
+    )
     assert bad_status.status_code == 422
 
-    waiter_denied = client.patch(f"/api/v1/tables/{created['id']}", json={"display_name": "Nope"}, headers=waiter(client))
+    waiter_denied = client.patch(
+        f"/api/v1/tables/{created['id']}", json={"display_name": "Nope"}, headers=waiter(client)
+    )
     assert waiter_denied.status_code == 403
 
 
@@ -196,7 +200,9 @@ def test_out_of_service_marked_in_listing(client: TestClient) -> None:
     token = created["qr_token"]
     assert client.get(f"/api/v1/public/qr/{token}/menu").status_code == 200
 
-    patched = client.patch(f"/api/v1/tables/{created['id']}", json={"status": "OUT_OF_SERVICE"}, headers=headers)
+    patched = client.patch(
+        f"/api/v1/tables/{created['id']}", json={"status": "OUT_OF_SERVICE"}, headers=headers
+    )
     assert patched.status_code == 200
     # Public page can resolve the token; ordering policy stays with the backend resolver,
     # which still returns the table. Staff see the status flag.
@@ -263,7 +269,9 @@ def test_archived_table_hidden_from_floor_but_guarded(client: TestClient) -> Non
     client.post(f"/api/v1/tables/{created['id']}/archive", headers=headers)
 
     # Operations on an archived tenant-owned table give domain conflicts, not 404s
-    edit = client.patch(f"/api/v1/tables/{created['id']}", json={"display_name": "x"}, headers=headers)
+    edit = client.patch(
+        f"/api/v1/tables/{created['id']}", json={"display_name": "x"}, headers=headers
+    )
     assert edit.status_code == 409
     assert edit.json()["code"] == "TABLE_ARCHIVED"
 
@@ -280,6 +288,8 @@ def test_other_tenant_table_is_not_visible(client: TestClient) -> None:
     response = client.post(f"/api/v1/tables/{fake_id}/archive", headers=headers)
     assert response.status_code == 404  # no existence leak beyond own tenant
 
-    response = client.patch(f"/api/v1/tables/{fake_id}", json={"display_name": "x"}, headers=headers)
+    response = client.patch(
+        f"/api/v1/tables/{fake_id}", json={"display_name": "x"}, headers=headers
+    )
     assert response.status_code == 404
     assert created["id"] != fake_id
