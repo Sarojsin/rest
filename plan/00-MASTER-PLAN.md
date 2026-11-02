@@ -35,32 +35,44 @@ Key principle: **widen, don't rewrite.** Every operational table keeps its curre
 | D10| Suspension behavior                                                      | Graceful: in-flight sessions finish, new sessions blocked, exports always allowed |
 | D11| Pilot migration path                                                     | Migrate the existing pilot restaurant through the same migration + registration door as everyone else (Path 1) |
 | D12| Dev database                                                             | Postgres-first from Phase 0. SQLite support is dropped from the migration path |
+| D13| Role granularity                                                         | One role per membership for the pilot; per-branch differing roles deliberately discouraged (09 §4) |
+| D14| Module boundaries                                                        | Backend is structured by **bounded context, not layer** — `modules/<context>/` with table ownership, enforced structurally by import-linter + tests (02 §2), not prose. The restructure happens in **Phase 0**, before any M1/M2 work |
+| D15| Internal events                                                          | Cross-module communication is via a typed, versioned internal event bus persisted through the outbox (02 §2.3, 13 §0). Lost events are impossible; handlers are idempotent and never roll back the emitter |
+| D16| Background worker                                                         | Scheduler runs in-process (asyncio) during the pilot — orchestrator over module interfaces, not a data-owning module (02 §2.5); no Celery until load demands |
 
 ## 3. Phase roadmap (summary — full detail in `22-phase-roadmap.md`)
 
-| Phase | Deliverable | Migrations | Est.   |
-|-------|-------------|------------|--------|
-| 0     | Repo audit, Postgres-first env, ADRs, isolation test skeleton | — | 1 wk   |
-| 1     | Tenancy scaffolding (tenants/branches/memberships/plans tables), TenantContext | M1, M2 | 2 wk   |
-| 2     | Multi-tenant auth: memberships, JWT with tenant claims, switch-tenant | — | 2 wk   |
-| 3     | Branch model: dual-write M3, read-switch M4, branch CRUD, menu overrides | M3, M4 | 3 wk   |
-| 4     | RLS + isolation hardening (isolation suite green ×2 weeks) | M5 | 2 wk   |
-| 5     | Thin super admin app (create/suspend/force-logout tenants) | — | 1 wk   |
-| 5b    | Onboarding wizard + trial state + demo tenant | — | 1.5 wk |
-| 6 (optional) | Stripe subscriptions, dunning, invoices | — | 3 wk   |
-| 7     | Customer subdomain routing + per-tenant branding | — | 1 wk   |
-| 8     | Waiter request feature | — | 0.5 wk |
-| 9     | Drop `restaurant_id` (M6) after green period | M6 | 1 wk   |
-| 10    | Launch hardening: pen-test, load test, restore drill, runbooks | — | 2 wk   |
+| Phase | Deliverable | Migrations | Eng. wk |
+|-------|-------------|------------|---------|
+| 0     | Repo audit, **bounded-context restructure**, Postgres-first env, ADRs, event skeleton, isolation skeleton | — | 2   |
+| 1     | Tenancy scaffolding (tenants/branches/memberships/plans tables), TenantContext | M1, M2 | 2.5 |
+| 2     | Multi-tenant auth: memberships, JWT with tenant claims, switch-tenant, bus live | — | 3   |
+| 3     | Branch model: dual-write M3, read-switch M4, branch CRUD, menu overrides | M3, M4 | 4   |
+| 4     | RLS + isolation hardening (1 wk work + 2 wk CI wait, parallelized) | M5 | 1 + 2 wait |
+| 5     | Thin super admin app (create/suspend/force-logout tenants) | — | 1.5 |
+| 5b    | Onboarding wizard + trial state + demo tenant | — | 2   |
+| 6 (optional) | Stripe subscriptions, dunning, invoices | — | 3.5 |
+| 7     | Customer subdomain routing + per-tenant branding | — | 1.5 |
+| 8     | Waiter request feature | — | 1   |
+| 9     | Drop `restaurant_id` (M6) after green period | M6 | 1.5 |
+| 10    | Launch hardening: pen-test, load test, restore drill, runbooks | — | 2.5 |
 
-Phases 1–5 (excluding 6) are the minimum viable platform. **7–10 weeks of focused work to "first external tenant can onboard."**
+Phases 1–5 (excluding 6) are the minimum viable platform. **Estimate ~16 engineering weeks ⇒ ~19–21 calendar weeks to "first external tenant can onboard"** (a second engineer pulls that toward ~17–19). Full build 0–10 ≈ 26 eng-weeks. See the engineering-vs-calendar assumption note below and `22-phase-roadmap.md Totals`; do not plan stakeholders around 7–10.
+
+**Estimate assumptions (applies to the plan-22 detail too):**
+- Unit = engineering weeks for **one senior engineer holding full context**, working on this project primarily.
+- Add ~30–40% wall-clock for: context hand-offs, M3-dual-write and RLS debugging (the two historically underestimated items), isolation-suite findings that each cost days to fix, and DNS/cert multi-day lag (D5). The isolation suite *finding twice as many bugs as expected in M3 is the expected case*, not a failure case.
+- Phase 4 includes ~2 weeks of *wall-clock waiting* (isolation suite green ×2 consecutive weeks) but is ~1 week of engineering work — work items can advance in parallel.
+- **Critical path:** 0 → 1 → 2 → 3 → 5 → 7. Phase 4 (RLS) can start as soon as Phase 3 dual-write stabilizes; 5/5b/7/8 parallelize off the critical path given a second engineer.
+
+**Sequencing rule (highest-leverage change):** the `modules/<bounded_context>/` restructure (D14) happens in **Phase 0**, *before* M1/M2. Building Phase 1 on the flat `services/ repositories/` layout and re-mapping in Phase 3 means doing M1/M2 code twice.
 
 ## 4. Document index
 
 | File | Topic |
 |------|-------|
 | `01-current-state-audit.md` | What the repo actually has; assumption validation; prerequisite findings |
-| `02-architecture-overview.md` | System architecture, module map, request lifecycle, tech stack |
+| `02-architecture-overview.md` | Bounded-context module map (D14), module contract, event bus, request lifecycle, tech stack |
 | `03-data-model.md` | Full target schema: new tables + column deltas + conventions |
 | `04-tenant-isolation.md` | Six defense layers, RLS design, composite FKs, global-table allowlist |
 | `05-authentication-authorization.md` | Three realms, JWT design, permission versioning, tenant switching |
@@ -79,7 +91,7 @@ Phases 1–5 (excluding 6) are the minimum viable platform. **7–10 weeks of fo
 | `18-testing-strategy.md` | Isolation suite, CI gates, fixtures, RLS double-run |
 | `19-security-threat-model.md` | Threat actors, T1–T25 mitigations, secure defaults |
 | `20-devops-infrastructure.md` | Environments, config, CI/CD, observability, backups, DNS/TLS |
-| `21-coding-standards.md` | Senior-level code conventions: repos, services, errors, typing |
+| `21-coding-standards.md` | Senior-level code conventions: repos, services, errors, typing — plus module-boundary norms (§11) |
 | `22-phase-roadmap.md` | Phase-by-phase tasks, estimates, exit criteria |
 | `23-decision-register.md` | ADR format, locked decisions, open decisions with owners |
 | `24-onboarding-trials.md` | Setup wizard tiers, abandonment, demo tenant, trial conversion |

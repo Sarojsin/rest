@@ -5,12 +5,12 @@
 ## 1. Subscription lifecycle (states & transitions)
 
 ```
-trialing ──payment/manual activation──► active
-active  ──payment failure / missed manual invoice──► past_due
-past_due ──grace ends──► suspended          (graceful, D10)
-active  ──cancel at period end──► cancelled
-cancelled ──period end──► expired
-expired ──data retention policy──► deletion workflow (90d)
+trialing  --(payment / manual activation)--> active
+active    --(payment failure / missed manual invoice)--> past_due
+past_due  --(grace ends)--> suspended        (graceful, D10)
+active    --(cancel at period end)--> cancelled
+cancelled --(period end)--> expired
+expired   --(data retention policy)--> deletion workflow (90d)
 ```
 
 - Tenant status mirrors live subscription status in `tenants.status`; one middleware gate reads it (fast path), the subscription row is the truth.
@@ -35,7 +35,7 @@ Scope guardrails — build these, nothing else:
 | Products | 1 Stripe product per plan; monthly+annual prices mirrored to `plans` |
 | Checkout | Hosted Checkout for upgrade/activation; `subscription_id` + `customer_id` persisted |
 | Webhooks | `POST /api/platform/webhooks/stripe` — separate router, separate secret; handle: `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated/deleted`, `customer.subscription.trial_will_end` |
-| Idempotency | every event id → `platform_billing_events` insert-before-process; `(provider, event_id)` unique |
+| Idempotency | every event id -> `platform_billing_events` insert-before-process; `(provider, event_id)` unique |
 | Dunning | 3 attempts/7 days (Stripe native); email day 1/3/7; suspend day 8 unless paid |
 | Reconciliation | nightly job compares Stripe subscription state vs `subscriptions` rows; mismatch ⇒ ops alert, never silent mutation |
 | Refunds/credits | platform admin action, requires reason, audited + emailed to owner; credits as next-invoice line |

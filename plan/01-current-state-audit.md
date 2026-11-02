@@ -52,6 +52,7 @@
 
 ## 5. Phase 0 checklist (verbatim tasks)
 
+- [ ] Perform the `modules/<bounded_context>/` restructure (00 §3 sequencing rule, 02 §2, 21 §10) — **before any M1/M2 code is written**, so migrations aren't built twice.
 - [ ] Stand up Postgres 16 in dev: set `DATABASE_URL` to Postgres, run `alembic upgrade head` against it, verify the full test suite passes (`pytest backend/tests`).
 - [ ] Delete ad-hoc SQLite artifacts from dev workflow (`backend/data/`, `data/*.db` become dev-throwaway; keep a snapshot only for migration backfill rehearsal).
 - [ ] Run the full suite green on Postgres; record any dialect-dependent failures and fix.

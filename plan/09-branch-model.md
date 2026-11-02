@@ -16,6 +16,7 @@
 2. Form: name, slug (unique per tenant), timezone, currency, tax/service-charge/receipt configs, `seed_from_branch` (default: copy menu defs + settings from another branch; option: start empty).
 3. Created status='active'; short branch setup checklist surfaces (same component as tenant wizard Tier 2 items, 24 §3).
 4. Audit: `branch.create` entry.
+5. Module-boundary note: **"copy menu from another branch" is a `catalog` module operation**, not a `tenancy` one — branch creation calls `catalog.copy_menu_between_branches(ctx, source_id, dest_id)` (cross-module call per 02 §2.1); `tenancy` owns the branch row only.
 
 **Seeded default is the right call** — second branches usually mirror the first; the admin then adjusts. Copy is explicit (never silent inheritance of unpublished drafts: copies publish-ready defs only).
 

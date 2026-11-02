@@ -109,8 +109,7 @@ CREATE TABLE subscriptions (
   trial_ends_at TIMESTAMPTZ,
   cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
   cancelled_at TIMESTAMPTZ,
-  billing_mode TEXT NOT NULL DEFAULT 'manual'      -- 'manual' (D6 MVP) | 'stripe' (Phase 6)
-  ,
+  billing_mode TEXT NOT NULL DEFAULT 'manual',      -- 'manual' (D6 MVP) | 'stripe' (Phase 6)
   gateway_provider TEXT, gateway_customer_id TEXT, gateway_subscription_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

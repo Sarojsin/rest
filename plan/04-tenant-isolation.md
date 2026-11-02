@@ -72,8 +72,10 @@ Maintained in `backend/app/db/isolation_allowlist.py`:
 ```
 plans, permissions (catalog), platform_admins, platform_audit_logs,
 platform_billing_events*   (*tenant_id nullable by design),
-users (global identity, D4), refresh_tokens, migrations/alembic
+users (global identity, D4), refresh_tokens (see note), migrations/alembic
 ```
+
+`refresh_tokens` note: the table has no `tenant_id` **column** (allowlisted), but every *row* is tenant-bound via the token payload + per-row tenant binding from `05 §3` — "not tenant-aware at table level" ≠ "not tenant-scoped per row." The allowlist rationale is that identity rows outlive any single tenant; their scoping is verified by auth-layer tests (18 §4), not RLS.
 
 The isolation test asserts: (a) every table not on this list has `tenant_id`; (b) no allowlisted table is exposed through a tenant-scoped endpoint; (c) schema diff fails CI if a new table is missing from either list. Usage counters/platform_invoices DO have tenant_id and are not allowlisted.
 
@@ -98,3 +100,9 @@ The isolation test asserts: (a) every table not on this list has `tenant_id`; (b
 | expired | ❌ | ❌ | ❌ | ✅ owner read-only + export |
 
 Gate lives in one service-level helper `tenant_gate.require_operational(ctx)` called at session/order mutation entry points — not scattered conditionals. Suspension also revokes refresh sessions (token_version bump) so per-request checks are the only state needed.
+
+## 8. Module isolation ≠ tenant isolation (two separate guarantees)
+
+Tenant isolation (L1–L6 above) stops data crossing tenants. It does **not** stop `kitchen` reading `orders` within the same tenant — that is a module-boundary concern (02 §2.1, D14), tested by a separate suite (18 §4): import-linter forbidden contracts + per-module test runs + internal-event contract tests. Both fail CI; neither substitutes for the other.
+
+Scheduler/worker note closing the 02/04 seam: the scheduler (02 §2.5) is cross-tenant by nature. Rules: (a) it calls module public service interfaces only — never repositories directly; (b) per-tenant work runs in its own transaction with `SET LOCAL app.current_tenant_id`; (c) the audited `bypassrls` role is used only for genuinely global work (e.g., nightly demo data reset, retention cleanup) and each use is logged to `platform_audit_logs`. This seam appears in the isolation suite as a dedicated "worker does not widen access" test (18 §4).

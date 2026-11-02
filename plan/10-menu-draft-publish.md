@@ -29,7 +29,7 @@ ALTER TABLE menu_items
 - Customer/kitchen read **published** fields only. Manage screen edits tenant item (live fields) → **Save as draft** stages into `draft_data` → **Publish** applies draft to live fields, sets `published_at`, emits `menu.published` outbox event → customer apps refetch.
 - Per-branch changes (price/availability) are operational and take effect immediately (no draft) — availability is a real-time operational truth (sold-out salmon must be instant), while catalog content (descriptions/photos/prices) is drafted.
 - Publish is permission-gated (`menu.publish`) and audited. Bulk publish validates the whole branch menu (no empty categories) before commit.
-- Drafts survive incomplete sessions; discard option available.
+- Cross-module effect (D15): publish emits `menu.published` (emitter = `catalog`), which `operations` and `notifications` consume to invalidate/bust their caches and push to customer apps — publish must never *call* other modules directly; the event is the coupling. Drafts survive incomplete sessions; discard option available.
 
 ## 4. Availability semantics
 

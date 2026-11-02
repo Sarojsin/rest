@@ -13,6 +13,17 @@ Cross-references: auth `05 §8` — endpoints `14 §3` — audit schema `03 §2`
 5. Read support agents can see counters and configuration but **never** PII beyond contact data and never card data (19 T10).
 6. Impersonation: **not built in the pilot** (deferred; when it comes: read-only, superadmin role, tenant-owner email notice, separate ADR).
 
+## 1.1 Break-glass: platform-admin recovery (the "locked out of our own platform" runbook)
+
+Bootstrap-from-env (05 §9) covers day 0 only. Four failure modes are covered:
+
+1. **Compromised superadmin:** disabled via another superadmin (or break-glass path 3); `token_version` bump kills all sessions; password rotated; `platform_audit_logs` entry with IP/UA.
+2. **Lost env vars / credentials:** `BOOTSTRAP_PLATFORM_ADMIN_*` remains functional on a running system — startup re-assert is idempotent: if the bootstrap admin is missing *or* disabled, it is re-created/re-enabled from env (audited loudly, email to all other admins). Losing the env file is a password reset, never a lockout.
+3. **All superadmins locked out (true break-glass):** a sealed *Break-Glass Runbook* — offline copy, **two-person rule** (execute only with two platform-staff signatures), logged in `platform_audit_logs` post-act with both signatories. Two accepted mechanisms: (a) direct managed-Postgres access via the ops secret store to set `platform_admins.status='active'` for a designated recovery account; (b) re-deploy with fresh bootstrap env vars so the idempotent startup re-assert (path 2) restores access. Rehearsed once in staging in Phase 10 (same drill cadence as the backup-restore drill).
+4. **Seat policy (prevention):** while any real tenants exist, **≥2 `superadmin` accounts are mandatory** — the admins-management UI refuses to remove/superadmin-demotion of the last active superadmin (app-level invariant + unit test); a daily ops email shows the current superadmin roster count.
+
+Invariant across all recovery paths: **no recovery is ever silent** — every path writes `platform_audit_logs` (even the direct-SQL path, post-act with actor + two-person sign-off) and notifies the remaining admins.
+
 ## 2. Platform roles × permissions
 
 | Code | support | billing | ops | superadmin |
@@ -40,7 +51,9 @@ Cross-references: auth `05 §8` — endpoints `14 §3` — audit schema `03 §2`
 ```
 POST /api/platform/auth/login | /refresh | /logout
 GET  /api/platform/tenants?status=&plan=&q=
-POST /api/platform/tenants                     # create shell + send owner invite (24 §2 door B)
+POST /api/platform/tenants                     # create shell + send owner invite (24 §2 door B);
+                                               # body includes mandatory source: 'sales-assisted'|'self-serve'|'migrated'
+                                               # (attribution for platform audit — 08 §3)
 GET  /api/platform/tenants/{id}                # profile, subscription, branches, usage, recent audit
 POST /api/platform/tenants/{id}/suspend        { reason }
 POST /api/platform/tenants/{id}/reactivate     { reason }

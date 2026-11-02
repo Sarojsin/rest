@@ -22,7 +22,11 @@
 }
 ```
 
-- **Permission source of truth is the DB.** Request path: resolve effective perms from `membership_roles → roles → role_permissions` (+ membership_branches); compare `pv`. On `pv` mismatch → `401 PERMISSION_VERSION_MISMATCH` → client refreshes and retries once; second failure ⇒ sign-out.
+- **Permission source of truth is the DB. How the JWT `perms` snapshot fits in (the exact trust model):**
+  1. **Fast deny path:** if `code ∉ perms` in the JWT → deny immediately (`403`), with **zero DB reads**. JWT perms are used to answer "no" cheaply, never to answer "yes" authoritatively.
+  2. **Slow allow path (only when JWT says maybe):** resolve effective perms from `membership_roles → roles → role_permissions` in the DB, then verify `pv` matches the token. `pv` mismatch → `401 PERMISSION_VERSION_MISMATCH` → client refreshes and retries once; second failure ⇒ sign-out.
+  3. Net effect: the DB always decides "yes"; the snapshot only short-circuits "no" and avoids unnecessary reads. A stale token that lost permissions can never silently pass — it fails at the `pv` check.
+- **Tenant mismatch policy (explicit per route class):** JWT/no-path-tenant routes (`/api/v1/*`) derive tenant from token only — a mismatch with anything client-supplied is structurally impossible (child routes carry no tenant id). Explicit-tenant path routes: `/api/platform/*` platform role → mismatch vs platform-scope rules ⇒ allow (acting on any tenant is the job, audited); staff realm hitting a tenant path it doesn't belong to ⇒ `404`; QR session touching another tenant's resource ⇒ `404` (existence never leaked). Discrepancy alerts (`REALM_MISMATCH`) page ops — they signal bugs or attacks, not user error.
 - `pv` is a per-membership counter on `memberships` (new column, M2 — `permission_version INT NOT NULL DEFAULT 1`). Bumped on any role/branch/permission change for that membership.
 - `jti` enables per-token revocation (logout-all, forced rotation). Access tokens remain stateless; revocation lists live in Postgres (`revoked_jti` keyed by jti + exp, cleaned by cron) — no Redis (D7).
 
@@ -39,8 +43,18 @@
 POST /api/v1/auth/switch-tenant { tenant_id }
   → verify memberships row (user, tenant, status='active')
   → issue new access + refresh for that tenant
-  → response includes tenant profile + entitlements for fresh surface boot
+  → response (full client boot payload — the client re-boots its surface from this alone):
+    {
+      "access_token": "...", "refresh_token": "...",     // new family bound to target tenant
+      "tenant": { "id", "slug", "display_name", "default_currency", "default_timezone" },
+      "branches": [ { "id", "slug", "name", "is_default" } ],  // the user's accessible branches
+      "permissions": { "codes": [...], "pv": <int>, "branch_ids": [...] },
+      "entitlements": { ...effective snapshot for UI rendering (07 §5)... },
+      "usage": { per-metric {used, limit, soft_mode} }         // powers disable/tooltip states (15 §3.1)
+    }
+  → memberships.last_used_at updated
 ```
+(14 §2 references this schema; login returns the same shape minus `branches`)
 
 - Login returns `tenants[]` + last-used tenant resolution (`last_used_at` column on `memberships`, M2). One tenant ⇒ straight in; many ⇒ picker (default picker only when no last-used OR user explicitly switches).
 - Revoked membership ⇒ next request fails `403 MEMBERSHIP_REVOKED` within one access-token lifetime, instantly on `pv` bump.
