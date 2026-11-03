@@ -25,13 +25,13 @@
    - Rollback rehearsal executed and approved
 
 ## Exit Criteria
-- [ ] `restaurant_id` dropped from all unnecessary tables ✅
-- [ ] Columns renamed to `branch_id` where appropriate ✅
-- [ ] 43/43 isolation/structure tests pass ✅
-- [ ] 15/15 table tests pass ✅
-- [ ] End-to-end isolation tests pass ✅
-- [ ] Rollback rehearsal executed and documented ✅
-- [ ] ruff: 0 errors ✅
+- [x] `restaurant_id` dropped from all unnecessary tables ✅
+- [x] Columns renamed to `branch_id` where appropriate ✅
+- [x] 43/43 isolation/structure tests pass ✅
+- [x] 15/15 table tests pass ✅
+- [x] End-to-end isolation tests pass ✅
+- [x] Rollback rehearsal executed and documented ✅
+- [x] ruff: 0 errors ✅
 
 ## Key Deliverables
 1. **`restaurant_id` removal scripts** — DROP COLUMN from tables no longer needing it

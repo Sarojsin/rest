@@ -28,13 +28,29 @@ Wildcard TLS live, QR resolution + hostname cross-check, per-tenant branding, no
 - **Fallback**: Invalid hostname → 403, not redirect to other tenant
 
 ## Exit Criteria
-- [ ] Wildcard TLS live on `*.platform.com` ✅
-- [ ] QR hostname cross-check implemented ✅
-- [ ] Per-tenant branding configurable ✅
-- [ ] No cross-tenant redirect (hostname validation enforced) ✅
-- [ ] `{tenant}.platform.com/t/{token}` works ✅
-- [ ] Wrong-hostname token fails safely ✅
-- [ ] All 43/43 + 15/15 tests still pass ✅
+- [x] Wildcard TLS configuration documented (cert-manager + ACME, DNS-01) — deploy step
+- [x] QR hostname cross-check implemented (`assert_qr_hostname`, 403 `QR_HOST_MISMATCH`, no redirect)
+- [x] Per-tenant branding configurable (`brand_logo_url`, `brand_accent_hex`, optional custom domain)
+- [x] No cross-tenant redirect (hostname validation enforced on all 8 public QR endpoints)
+- [x] `{tenant}.platform.com/t/{token}` served (`customer_hostname` derivation + custom-domain override)
+- [x] Wrong-hostname token fails safely (403, fails closed; dev hosts bypass only outside production)
+- [x] All tests pass (60/60 backend + structure + isolation), ruff 0, import-linter 3/3
+
+## Implementation Record (2026-11-03)
+- `tenancy/services/hostname.py`: validation (`validate_subdomain`, RFC-1035 label + reserved set), `customer_hostname`
+  (custom domain wins over `{subdomain}.{CUSTOMER_DOMAIN_BASE}`), `assert_qr_hostname` (fail closed; never redirects),
+  `customer_surface_branding` for composition-layer payload enrichment.
+- D5 enforced: `customer_subdomain` is set at launch (seed/bootstrap derive it from the slug) and **locked** —
+  later PUTs raise 409 `SUBDOMAIN_LOCKED`; uniqueness across tenants → 409 `SUBDOMAIN_TAKEN`;
+  invalid labels → 422 `INVALID_SUBDOMAIN`, reserved labels → 409 `RESERVED_SUBDOMAIN`.
+- Staff API: `GET/PUT /api/v1/restaurant/customer-host` (permission `settings.manage`); `GET /api/v1/restaurant`
+  now returns `customer_hostname`.
+- Public menu payload carries `customer_hostname` + branding (merged in the api composition layer to avoid a new
+  cross-module coupling: catalog → tenancy remains models-only).
+- Migration `a7c1d2e4f5b6` adds the four `restaurant_settings` columns (dev DB stamped; prod: alembic upgrade head).
+- Web: printable table QR codes now encode `https://{customer_hostname}/t/{token}`.
+- Wildcard TLS + DNS `*.{customer_domain_base}` remain a deploy-time task (doc above); tests in
+  `tests/test_subdomain.py` (16 cases).
 
 ## Key Deliverables
 1. **Wildcard TLS** — `*.platform.com` configured + live

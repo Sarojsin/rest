@@ -44,13 +44,14 @@ claim/escalate/timeout real-time, rate-limited, audited. Waiter can claim orders
 - Exportable for compliance reports
 
 ## Exit Criteria
-- [ ] Claim flow: `PATCH /orders/{id}/claim` — marks order claimed_by=waiter_id ✅
-- [ ] Escalate flow: `PATCH /orders/{id}/escalate` — marks order escalated ✅
-- [ ] Timeout: automatic after fixed period ✅
-- [ ] Rate limiting: 429 responses when limits exceeded ✅
-- [ ] Audit trail: every action logged with waiter_id + timestamp ✅
-- [ ] 43/43 + 15/15 tests still pass ✅
-- [ ] ruff: 0 errors ✅
+- [x] Claim flow: `POST /orders/{id}/claim` — marks order claimed_by=waiter_id ✅
+- [x] Escalate flow: `POST /orders/{id}/escalate` — marks order escalated ✅
+- [x] Timeout: automatic via lazy sweep on `/api/v1/orders` list ✅
+- [x] Rate limiting: 429 responses when hourly caps exceeded ✅
+- [x] Audit trail: every action logged with waiter_id + timestamp ✅
+- [x] 73/73 tests + structure + isolation still pass ✅
+- [x] ruff: 0 errors ✅
+- [x] lint-imports: 3 kept, 0 broken ✅
 
 ## Key Deliverables
 1. **Order claim endpoint** — `PATCH /orders/{id}/claim`
@@ -68,16 +69,18 @@ claim/escalate/timeout real-time, rate-limited, audited. Waiter can claim orders
 
 ## Verification Commands
 ```bash
-# Run test suite
+# Run full test suite (73 tests across all phases)
 venv\Scripts\python.exe -m pytest tests tests/structure tests/isolation -q --no-header
 
-# Test claim flow (integration)
-# Test escalate flow (integration)
-# Test timeout logic (integration)
-# Test rate limiting (integration)
+# Phase 8 claim/escalate/release tests
+venv\Scripts\python.exe -m pytest tests/test_claims.py -q --no-header
 
-# Verify no regressions
-venv\Scripts\python.exe -m ruff check app tests alembic\env.py
+# Lint + import contracts
+ruff check app tests alembic\env.py
+venv\Scripts\lint-imports.exe
+
+# Web frontend
+npx tsc -b && npm run build
 ```
 
 ---
