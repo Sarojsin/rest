@@ -26,6 +26,25 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    
+    # Security middleware - Plan 06 implementation
+    @application.middleware("http")
+    async def security_middleware(request: Request, call_next):
+        response = await call_next(request)
+        
+        # Security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        
+        # Content Security Policy
+        response.headers["Content-Security-Policy"] = "default-src 'self';"
+
+        return response
+
     application.add_exception_handler(AppError, app_error_handler)
     application.add_exception_handler(StarletteHTTPException, http_error_handler)
 

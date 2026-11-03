@@ -117,7 +117,6 @@ def test_tenant1_actor_cannot_see_tenant2_table():
 
         # Create a table under tenant 2 only
         t2 = RestaurantTable(
-            restaurant_id=restaurant_2.id,
             branch_id=restaurant_2.id,
             table_code="t99",
             display_name="Tenant2 Table",
@@ -166,7 +165,6 @@ def test_tenant2_actor_cannot_see_tenant1_table():
             db.flush()
 
         t1 = RestaurantTable(
-            restaurant_id=restaurant_1.id,
             branch_id=restaurant_1.id,
             table_code="t88",
             display_name="Tenant1 Table",

@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     tax_rate_bps: int = 1000
     uploads_dir: str = "./data/uploads"
     max_qr_image_bytes: int = 2_097_152  # 2 MB
+    # Plan 07 M7: customer QR surface runs on {subdomain}.{customer_domain_base}
+    # (D5). Wildcard TLS for *.{customer_domain_base} terminates at the LB;
+    # public QR endpoints cross-check the Host header against it.
+    customer_domain_base: str = "platform.com"
+    qr_hostname_enforcement: bool = True
+    # Plan 08: waiter claim responsibility expires automatically and the order
+    # escalates; per-waiter hourly action caps prevent queue spam.
+    claim_timeout_minutes: int = 10
+    claims_per_hour_limit: int = 60
+    escalations_per_hour_limit: int = 12
     # Production bootstrap (used only when the deployed DB is empty):
     # structural minimum — one restaurant and one owner. No demo data is ever
     # seeded in production; menus/tables/staff are created through the app.

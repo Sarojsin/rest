@@ -74,4 +74,9 @@ class PublicMenuOut(BaseModel):
     table_id: UUID
     table_display_name: str
     qr_ordering_enabled: bool
+    # Plan 07 M7: per-tenant branding + the customer hostname this tenant
+    # serves its QR surface on (D5).
+    customer_hostname: str = ""
+    brand_logo_url: str = ""
+    brand_accent_hex: str = ""
     categories: list[PublicMenuCategory]

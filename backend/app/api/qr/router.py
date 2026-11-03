@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -18,25 +18,43 @@ from app.modules.operations.services import orders as order_service
 from app.modules.service_calls.schemas import PublicServiceCallOut
 from app.modules.service_calls.services import service_calls as service_call_service
 from app.modules.tenancy.models import Restaurant
+from app.modules.tenancy.services.hostname import (
+    assert_qr_hostname,
+    customer_surface_branding,
+)
 from app.shared.errors import AppError
 from app.shared.idempotency import idempotency_key
 
 router = APIRouter(prefix="/public", tags=["public"])
 
 
+def _guard_host(db: Session, request: Request, restaurant_id: object) -> None:
+    """Plan 07: reject (403, never redirect) cross-tenant customer hosts."""
+    assert_qr_hostname(db, restaurant_id, request.headers.get("host", ""))
+
+
 @router.get("/qr/{qr_token}/menu", response_model=PublicMenuOut)
-def get_public_menu(qr_token: str, db: Session = Depends(get_db)) -> PublicMenuOut:
+def get_public_menu(
+    qr_token: str, request: Request, db: Session = Depends(get_db)
+) -> PublicMenuOut:
     qr, table = order_service.resolve_qr(db, qr_token)
-    return menu_service.public_menu(db, qr.restaurant_id, table)
+    _guard_host(db, request, qr.restaurant_id)
+    payload = menu_service.public_menu(db, qr.restaurant_id, table)
+    # Plan 07: tenant branding/hostname is tenancy data; merge it in the
+    # composition layer so catalog stays coupled only to tenancy models.
+    return payload.model_copy(update=customer_surface_branding(db, qr.restaurant_id))
 
 
 @router.post("/qr/{qr_token}/orders", response_model=SubmitQrOrderResponse)
 def submit_qr_order(
     qr_token: str,
     payload: SubmitQrOrderRequest,
+    request: Request,
     db: Session = Depends(get_db),
     idempotency_key: str = Depends(idempotency_key),
 ) -> SubmitQrOrderResponse:
+    qr, table = order_service.resolve_qr(db, qr_token)
+    _guard_host(db, request, qr.restaurant_id)
     order, status_token = order_service.submit_qr_order(
         db,
         qr_token=qr_token,
@@ -53,8 +71,11 @@ def submit_qr_order(
 
 
 @router.get("/orders/{status_token}", response_model=PublicOrderStatusOut)
-def get_order_status(status_token: str, db: Session = Depends(get_db)) -> PublicOrderStatusOut:
+def get_order_status(
+    status_token: str, request: Request, db: Session = Depends(get_db)
+) -> PublicOrderStatusOut:
     order = order_service.get_public_order_status(db, status_token)
+    _guard_host(db, request, order.restaurant_id)
     table = db.get(RestaurantTable, order.table_id)
     restaurant = db.get(Restaurant, order.restaurant_id)
     out = order_service.order_to_out(order)
@@ -81,8 +102,11 @@ def get_order_status(status_token: str, db: Session = Depends(get_db)) -> Public
 
 
 @router.get("/orders/{status_token}/bill", response_model=PublicBillOut)
-def get_public_bill(status_token: str, db: Session = Depends(get_db)) -> PublicBillOut:
+def get_public_bill(
+    status_token: str, request: Request, db: Session = Depends(get_db)
+) -> PublicBillOut:
     order = order_service.get_public_order_status(db, status_token)
+    _guard_host(db, request, order.restaurant_id)
     bill = (
         billing_service.get_session_bill(db, order.restaurant_id, order.dining_session_id)
         if order.dining_session_id
@@ -126,16 +150,20 @@ def get_public_bill(status_token: str, db: Session = Depends(get_db)) -> PublicB
 
 @router.post("/orders/{status_token}/cancel")
 def cancel_order_public(
-    status_token: str, payload: CancelOrderRequest, db: Session = Depends(get_db)
+    status_token: str, payload: CancelOrderRequest, request: Request, db: Session = Depends(get_db)
 ) -> dict:
+    order = order_service.get_public_order_status(db, status_token)
+    _guard_host(db, request, order.restaurant_id)
     order = order_service.cancel_public_order(db, status_token, payload.reason)
     return {"order_id": str(order.id), "status": order.status}
 
 
 @router.post("/orders/{status_token}/rate")
 def rate_order_public(
-    status_token: str, payload: RateOrderRequest, db: Session = Depends(get_db)
+    status_token: str, payload: RateOrderRequest, request: Request, db: Session = Depends(get_db)
 ) -> dict:
+    order = order_service.get_public_order_status(db, status_token)
+    _guard_host(db, request, order.restaurant_id)
     return order_service.rate_public_order(db, status_token, payload.rating, payload.comment)
 
 
@@ -150,12 +178,20 @@ def _service_call_out(call, *, deduplicated: bool = False) -> PublicServiceCallO
 
 
 @router.post("/qr/{qr_token}/service-calls", response_model=PublicServiceCallOut)
-def call_waiter(qr_token: str, db: Session = Depends(get_db)) -> PublicServiceCallOut:
+def call_waiter(
+    qr_token: str, request: Request, db: Session = Depends(get_db)
+) -> PublicServiceCallOut:
+    qr, table = order_service.resolve_qr(db, qr_token)
+    _guard_host(db, request, qr.restaurant_id)
     call, created = service_call_service.create_service_call(db, qr_token)
     return _service_call_out(call, deduplicated=not created)
 
 
 @router.get("/qr/{qr_token}/service-calls/latest")
-def latest_service_call(qr_token: str, db: Session = Depends(get_db)) -> dict:
+def latest_service_call(
+    qr_token: str, request: Request, db: Session = Depends(get_db)
+) -> dict:
+    qr, table = order_service.resolve_qr(db, qr_token)
+    _guard_host(db, request, qr.restaurant_id)
     call = service_call_service.latest_service_call_for_qr(db, qr_token)
     return {"call": _service_call_out(call).model_dump() if call else None}

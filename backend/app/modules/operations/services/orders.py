@@ -54,6 +54,12 @@ def order_to_out(order: Order) -> OrderOut:
         rejection_reason_code=order.rejection_reason_code,
         rejection_note=order.rejection_note,
         version=order.version,
+        claim_state=order.claim_state,
+        claimed_by_membership_id=order.claimed_by_membership_id,
+        claimed_at=order.claimed_at,
+        claim_timeout_at=order.claim_timeout_at,
+        escalated_by_membership_id=order.escalated_by_membership_id,
+        escalated_at=order.escalated_at,
         items=items,
         subtotal_minor=subtotal,
         tax_minor=tax,
@@ -258,7 +264,7 @@ def create_waiter_order(
 
     table = db.scalar(
         select(RestaurantTable).where(
-            RestaurantTable.id == table_id, RestaurantTable.restaurant_id == restaurant_id
+            RestaurantTable.id == table_id, RestaurantTable.branch_id == restaurant_id
         )
     )
     if table is None or table.status != "ACTIVE":

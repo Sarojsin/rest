@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -10,10 +10,9 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 class RestaurantTable(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "restaurant_tables"
     __table_args__ = (
-        UniqueConstraint("restaurant_id", "table_code", name="uq_tables_restaurant_code"),
+        UniqueConstraint("table_code", name="uq_tables_table_code"),
     )
 
-    restaurant_id: Mapped[UUID] = mapped_column(ForeignKey("restaurants.id"), nullable=False)
     branch_id: Mapped[UUID] = mapped_column(ForeignKey("restaurants.id"), nullable=False)
     table_code: Mapped[str] = mapped_column(String(32), nullable=False)
     display_name: Mapped[str] = mapped_column(String(80), nullable=False)
@@ -82,6 +81,16 @@ class Order(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     decision_by_membership_id: Mapped[UUID | None] = mapped_column(nullable=True)
     rejection_reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rejection_note: Mapped[str] = mapped_column(String(280), default="")
+    # Plan 08 — waiter claim ownership on an order ("I am handling this").
+    # claim_state: "" (unclaimed) / CLAIMED / ESCALATED (plan 08 flows).
+    claim_state: Mapped[str] = mapped_column(String(32), default="")
+    claimed_by_membership_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claim_timeout_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    escalated_by_membership_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    escalated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
 
     dining_session: Mapped["DiningSession"] = relationship(back_populates="orders")

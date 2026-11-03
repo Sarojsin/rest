@@ -138,6 +138,7 @@ def seed_if_empty(db: Session) -> None:
             receipt_footer="Thank you for dining with us",
             qr_ordering_enabled=True,
             online_payments_enabled=False,
+            customer_subdomain="harbor-table",
         )
     )
 
@@ -161,7 +162,6 @@ def seed_if_empty(db: Session) -> None:
 
     for index, code in enumerate(["T1", "T2", "T3", "T4", "T5", "T6"], start=1):
         table = RestaurantTable(
-            restaurant_id=restaurant.id,
             branch_id=restaurant.id,
             table_code=code,
             display_name=f"Table {index}",
@@ -267,6 +267,9 @@ def bootstrap_production(db: Session, settings: "Settings") -> None:
             receipt_footer="Thank you",
             qr_ordering_enabled=True,
             online_payments_enabled=False,
+            # D5: the customer subdomain is chosen at launch (from the slug)
+            # and locked for the tenant's lifetime.
+            customer_subdomain="main",
         )
     )
 

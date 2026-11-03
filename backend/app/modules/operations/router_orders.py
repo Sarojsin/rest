@@ -5,7 +5,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import Actor, require_permission
 from app.db.session import get_db
-from app.modules.operations.schemas import CreateWaiterOrderRequest, OrderOut, RejectOrderRequest
+from app.modules.operations.schemas import (
+    CreateWaiterOrderRequest,
+    EscalateOrderRequest,
+    OrderOut,
+    RejectOrderRequest,
+)
+from app.modules.operations.services import claims as claim_service
 from app.modules.operations.services import orders as order_service
 from app.shared.idempotency import idempotency_key
 
@@ -19,6 +25,8 @@ def list_orders(
     actor: Actor = Depends(require_permission("orders.read")),
     db: Session = Depends(get_db),
 ) -> list[OrderOut]:
+    # Plan 08: expired claims must never linger silently in the shared view.
+    claim_service.sweep_expired_claims(db, actor.restaurant_id)
     return [
         order_service.order_to_out(order)
         for order in order_service.list_orders(db, actor.restaurant_id, status, source)
@@ -72,5 +80,44 @@ def reject_order(
 ) -> OrderOut:
     order = order_service.reject_qr_order(
         db, actor.membership, order_id, payload.reason_code, payload.note
+    )
+    return order_service.order_to_out(order)
+
+
+# --- Waiter claims (plan 08) ---------------------------------------------------
+
+
+@router.post("/orders/{order_id}/claim", response_model=OrderOut)
+def claim_order(
+    order_id: UUID,
+    actor: Actor = Depends(require_permission("orders.confirm_qr")),
+    db: Session = Depends(get_db),
+) -> OrderOut:
+    order = claim_service.claim_order(db, actor.membership, order_id)
+    return order_service.order_to_out(order)
+
+
+@router.post("/orders/{order_id}/escalate", response_model=OrderOut)
+def escalate_order(
+    order_id: UUID,
+    payload: EscalateOrderRequest,
+    actor: Actor = Depends(require_permission("orders.confirm_qr")),
+    db: Session = Depends(get_db),
+) -> OrderOut:
+    is_supervisor = actor.membership.role == "manager"
+    order = claim_service.escalate_order(
+        db, actor.membership, order_id, payload.note, is_supervisor=is_supervisor
+    )
+    return order_service.order_to_out(order)
+
+
+@router.post("/orders/{order_id}/release", response_model=OrderOut)
+def release_claim(
+    order_id: UUID,
+    actor: Actor = Depends(require_permission("orders.serve")),
+    db: Session = Depends(get_db),
+) -> OrderOut:
+    order = claim_service.release_claim(
+        db, actor.membership, order_id, is_supervisor=bool(actor.membership.role == "manager")
     )
     return order_service.order_to_out(order)

@@ -383,3 +383,27 @@ def test_ingredients_visible_in_public_menu(client: TestClient) -> None:
         headers=manager,
     )
     assert too_long.status_code == 422
+
+
+def test_account_lockout_after_repeated_failures(client: TestClient) -> None:
+    """Five failed logins lock the account (plan 06 §Account security)."""
+    from app.core.security import MAX_FAILED_LOGIN_ATTEMPTS, lockout_store
+
+    email = "waiter@harbor.example"
+    try:
+        for _ in range(MAX_FAILED_LOGIN_ATTEMPTS):
+            bad = client.post(
+                "/api/v1/auth/login", json={"email": email, "password": "wrong-pass-1"}
+            )
+            assert bad.status_code == 401
+            assert bad.json()["code"] == "INVALID_CREDENTIALS"
+
+        # The counter is now exhausted: even the correct password is rejected.
+        good = client.post(
+            "/api/v1/auth/login", json={"email": email, "password": "HarborWaiter!1"}
+        )
+        assert good.status_code == 429, good.text
+        assert good.json()["code"] == "ACCOUNT_LOCKED"
+    finally:
+        # The in-process lockout store must not leak into other tests/modules.
+        lockout_store.clear()

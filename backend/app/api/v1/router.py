@@ -16,12 +16,20 @@ from app.modules.operations.router import router as operations_router
 from app.modules.payments.router import router as payments_router
 from app.modules.reports.router import router as reports_router
 from app.modules.service_calls.router import router as service_calls_router
+from app.modules.loyalty.router import router as loyalty_router
+from app.modules.employees.router import router as employees_router
+from app.modules.reviews.router import router as reviews_router
+from app.modules.subscriptions.router import router as subscriptions_router
 from app.modules.tenancy.router import router as tenancy_router
 
 api_router = APIRouter()
 api_router.include_router(identity_router)
 api_router.include_router(qr_router)
 api_router.include_router(tenancy_router)
+api_router.include_router(employees_router)
+api_router.include_router(loyalty_router)
+api_router.include_router(reviews_router)
+api_router.include_router(subscriptions_router)
 api_router.include_router(operations_router)
 api_router.include_router(catalog_router)
 api_router.include_router(kitchen_router)

@@ -19,11 +19,11 @@ _CODE_PATTERN: Pattern[str] = re_compile(r"^[A-Z0-9-]{1,32}$")
 _EDITABLE_STATUSES = {TableStatus.ACTIVE, TableStatus.OUT_OF_SERVICE}
 
 
-def _load_table(db: Session, restaurant_id: UUID, table_id: UUID) -> RestaurantTable:
+def _load_table(db: Session, branch_id: UUID, table_id: UUID) -> RestaurantTable:
     table = db.scalar(
         select(RestaurantTable).where(
             RestaurantTable.id == table_id,
-            RestaurantTable.restaurant_id == restaurant_id,
+            RestaurantTable.branch_id == branch_id,
         )
     )
     if table is None:
@@ -36,7 +36,7 @@ def _load_table(db: Session, restaurant_id: UUID, table_id: UUID) -> RestaurantT
 
 def _table_out(
     db: Session,
-    restaurant_id: UUID,
+    branch_id: UUID,
     table: RestaurantTable,
     *,
     sessions_by_table: dict[UUID, DiningSession] | None = None,
@@ -44,11 +44,11 @@ def _table_out(
     active_qr_by_table: dict[UUID, TableQrCode] | None = None,
 ) -> TableOut:
     if sessions_by_table is None:
-        sessions_by_table = _open_sessions(db, restaurant_id)
+        sessions_by_table = _open_sessions(db, branch_id)
     if pending_counts is None:
-        pending_counts = _pending_order_counts(db, restaurant_id)
+        pending_counts = _pending_order_counts(db, branch_id)
     if active_qr_by_table is None:
-        active_qr_by_table = _active_qr_tokens(db, restaurant_id)
+        active_qr_by_table = _active_qr_tokens(db, branch_id)
     session = sessions_by_table.get(table.id)
     occupancy = "AVAILABLE"
     if session and session.status == DiningSessionStatus.CHECKOUT_PENDING:
@@ -70,10 +70,10 @@ def _table_out(
     )
 
 
-def _open_sessions(db: Session, restaurant_id: UUID) -> dict[UUID, DiningSession]:
+def _open_sessions(db: Session, branch_id: UUID) -> dict[UUID, DiningSession]:
     sessions = db.scalars(
         select(DiningSession).where(
-            DiningSession.restaurant_id == restaurant_id,
+            DiningSession.restaurant_id == branch_id,
             DiningSession.status.in_(
                 [DiningSessionStatus.OPEN, DiningSessionStatus.CHECKOUT_PENDING]
             ),
@@ -82,12 +82,12 @@ def _open_sessions(db: Session, restaurant_id: UUID) -> dict[UUID, DiningSession
     return {s.table_id: s for s in sessions}
 
 
-def _pending_order_counts(db: Session, restaurant_id: UUID) -> dict[UUID, int]:
+def _pending_order_counts(db: Session, branch_id: UUID) -> dict[UUID, int]:
     return dict(
         db.execute(
             select(Order.table_id, func.count(Order.id))
             .where(
-                Order.restaurant_id == restaurant_id,
+                Order.restaurant_id == branch_id,
                 Order.status == OrderStatus.PENDING_CONFIRMATION,
             )
             .group_by(Order.table_id)
@@ -95,34 +95,34 @@ def _pending_order_counts(db: Session, restaurant_id: UUID) -> dict[UUID, int]:
     )
 
 
-def _active_qr_tokens(db: Session, restaurant_id: UUID) -> dict[UUID, TableQrCode]:
+def _active_qr_tokens(db: Session, branch_id: UUID) -> dict[UUID, TableQrCode]:
     qr_rows = db.scalars(
         select(TableQrCode).where(
-            TableQrCode.restaurant_id == restaurant_id,
+            TableQrCode.restaurant_id == branch_id,
             TableQrCode.status == "ACTIVE",
         )
     ).all()
     return {qr.table_id: qr for qr in qr_rows}
 
 
-def list_tables(db: Session, restaurant_id: UUID, include_archived: bool = False) -> list[TableOut]:
+def list_tables(db: Session, branch_id: UUID, include_archived: bool = False) -> list[TableOut]:
     stmt = (
         select(RestaurantTable)
-        .where(RestaurantTable.restaurant_id == restaurant_id)
+        .where(RestaurantTable.branch_id == branch_id)
         .order_by(RestaurantTable.sort_order, RestaurantTable.table_code)
     )
     if not include_archived:
         stmt = stmt.where(RestaurantTable.status != TableStatus.ARCHIVED)
     tables = db.scalars(stmt).all()
 
-    sessions_by_table = _open_sessions(db, restaurant_id)
-    pending_counts = _pending_order_counts(db, restaurant_id)
-    active_qr_by_table = _active_qr_tokens(db, restaurant_id)
+    sessions_by_table = _open_sessions(db, branch_id)
+    pending_counts = _pending_order_counts(db, branch_id)
+    active_qr_by_table = _active_qr_tokens(db, branch_id)
 
     return [
         _table_out(
             db,
-            restaurant_id,
+            branch_id,
             table,
             sessions_by_table=sessions_by_table,
             pending_counts=pending_counts,
@@ -170,10 +170,10 @@ def _validate_code(code: str) -> str:
 
 
 def _ensure_code_available(
-    db: Session, restaurant_id: UUID, code: str, exclude_id: UUID | None = None
+    db: Session, branch_id: UUID, code: str, exclude_id: UUID | None = None
 ) -> None:
     stmt = select(RestaurantTable.id).where(
-        RestaurantTable.restaurant_id == restaurant_id,
+        RestaurantTable.branch_id == branch_id,
         func.upper(RestaurantTable.table_code) == code,
     )
     if exclude_id is not None:
@@ -194,7 +194,7 @@ def create_table(db: Session, membership: RestaurantMembership, payload: TableCr
     if payload.sort_order is None:
         max_order = db.scalar(
             select(func.max(RestaurantTable.sort_order)).where(
-                RestaurantTable.restaurant_id == membership.restaurant_id
+                RestaurantTable.branch_id == membership.restaurant_id
             )
         )
         sort_order = (max_order or 0) + 1
@@ -202,7 +202,6 @@ def create_table(db: Session, membership: RestaurantMembership, payload: TableCr
         sort_order = payload.sort_order
 
     table = RestaurantTable(
-        restaurant_id=membership.restaurant_id,
         branch_id=membership.restaurant_id,
         table_code=code,
         display_name=payload.display_name.strip(),
@@ -281,8 +280,8 @@ def update_table(
     return _table_out(db, membership.restaurant_id, table)
 
 
-def _ensure_not_in_active_use(db: Session, restaurant_id: UUID, table: RestaurantTable) -> None:
-    session = _open_sessions(db, restaurant_id).get(table.id)
+def _ensure_not_in_active_use(db: Session, branch_id: UUID, table: RestaurantTable) -> None:
+    session = _open_sessions(db, branch_id).get(table.id)
     if session is not None:
         raise AppError(
             409,
@@ -292,7 +291,7 @@ def _ensure_not_in_active_use(db: Session, restaurant_id: UUID, table: Restauran
         )
     pending = db.scalar(
         select(Order.id).where(
-            Order.restaurant_id == restaurant_id,
+            Order.restaurant_id == branch_id,
             Order.table_id == table.id,
             Order.status == OrderStatus.PENDING_CONFIRMATION,
         )

@@ -76,6 +76,13 @@ class OrderOut(ORMModel):
     rejection_reason_code: str | None
     rejection_note: str
     version: int
+    # Plan 08 — waiter claim picture for the order queue.
+    claim_state: str = ""
+    claimed_by_membership_id: UUID | None = None
+    claimed_at: datetime | None = None
+    claim_timeout_at: datetime | None = None
+    escalated_by_membership_id: UUID | None = None
+    escalated_at: datetime | None = None
     items: list[OrderItemOut]
     subtotal_minor: int = 0
     tax_minor: int = 0
@@ -95,6 +102,12 @@ class RejectOrderRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     reason_code: str = Field(min_length=2, max_length=64)
+    note: str = Field(default="", max_length=280)
+
+
+class EscalateOrderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     note: str = Field(default="", max_length=280)
 
 
@@ -132,3 +145,33 @@ class PublicOrderStatusOut(BaseModel):
     items: list[dict]
     total_minor: int
     currency_code: str
+
+
+# ── Dashboard / Sales Analytics ──────────────────────────────────────────────
+
+class DashboardRevenueOut(BaseModel):
+    total_revenue_minor: int
+    total_revenue_display: str  # formatted for display
+
+
+class DashboardOrdersOut(BaseModel):
+    total_orders: int
+    orders_by_status: dict
+
+
+class DashboardDailySalesOut(BaseModel):
+    day: str
+    revenue_minor: int
+
+
+class DashboardBestDishesOut(BaseModel):
+    dish: str
+    total_quantity: int
+    revenue_minor: int
+
+
+class DashboardPeriodSummaryOut(BaseModel):
+    period_days: int
+    total_revenue_minor: int
+    total_orders: int
+    daily_breakdown: list[DashboardDailySalesOut]
