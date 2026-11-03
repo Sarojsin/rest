@@ -25,9 +25,9 @@ function waitingLabel(iso: string, now: number): string {
 
 export default function OverviewPage() {
   const { has } = useAuth();
-  const [report, setReport] = useState<SalesReport | null>(null);
-  const [tables, setTables] = useState<Table[]>([]);
-  const [pending, setPending] = useState<Order[]>([]);
+  const [report, setReport] = useState<any | null>(null);
+  const [tables, setTables] = useState<any[]>([]);
+  const [pending, setPending] = useState<any[]>([]);
   const [calls, setCalls] = useState<ServiceCall[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());

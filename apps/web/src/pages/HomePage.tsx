@@ -5,6 +5,9 @@ import { DEMO_ACCOUNTS, DEMO_ENABLED, DEMO_HINT, demoLoginHref } from "../lib/de
 export default function HomePage() {
   return (
     <div className="landing shell" data-theme="customer">
+      <a className="skip-link" href="#demo">
+        Skip to content
+      </a>
       <header className="topbar">
         <Link className="brand" to="/">
           <div className="mark">{monogram(BRAND_NAME)}</div>
@@ -76,6 +79,117 @@ export default function HomePage() {
               A private status link tracks every course. When you are ready, the shared
               table bill is settled with staff.
             </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="pricing" className="landing-section" aria-labelledby="pricing-title">
+        <div className="section-head">
+          <p className="kicker dark">Pricing</p>
+          <h2 id="pricing-title">Simple, transparent pricing</h2>
+          <p className="muted">
+            Clear tiered pricing that grows with your restaurant.
+          </p>
+        </div>
+        <div className="grid three" aria-label="Tier pricing cards">
+          <article className="card pricing-card">
+            <div className="pricing-header">
+              <span className="popular-tag" style={{display: "none", backgroundColor: "var(--accent)", color: "var(--primary)"}}>Most Popular</span>
+              <h3>Basic</h3>
+              <p className="pricing-price">$29/month</p>
+            </div>
+            <ul className="pricing-features">
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Single branch/restaurant</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Up to 5 tables</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>QR code ordering</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Table management</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Basic dashboard</li>
+            </ul>
+          </article>
+          <article className="card pricing-card">
+            <div className="pricing-header">
+              <span className="popular-tag" style={{display: "block", backgroundColor: "var(--accent)", color: "var(--primary)"}}>Most Popular</span>
+              <h3>Professional</h3>
+              <p className="pricing-price">$79/month</p>
+            </div>
+            <ul className="pricing-features">
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Unlimited branches</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Branch-specific menus</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Subdomain configuration</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Audit viewer</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Suspend/reactivate</li>
+            </ul>
+          </article>
+          <article className="card pricing-card">
+            <div className="pricing-header">
+              <span className="popular-tag" style={{display: "none", backgroundColor: "var(--accent)", color: "var(--primary)"}}>Custom</span>
+              <h3>Enterprise</h3>
+              <p className="pricing-price">Custom</p>
+            </div>
+            <ul className="pricing-features">
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Unlimited branches</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Custom branding</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>API access</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Priority support</li>
+              <li className="feature-item"><span aria-hidden="true" className="check-icon">✓</span>Advanced analytics</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="testimonials" className="landing-section" aria-labelledby="testimonials-title">
+        <div className="section-head">
+          <p className="kicker dark">Testimonials</p>
+          <h2 id="testimonials-title">What restaurant owners say</h2>
+        </div>
+        <div className="grid three" aria-label="Customer testimonials">
+          <article className="card testimonial-card">
+            <div className="testimonial-text">
+              <p>The QR ordering system has transformed our service. Guests love it and our kitchen runs smoother.</p>
+              <div className="rating">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <span key={value} className={value <= 5 ? "star filled" : "star empty"} aria-hidden={true}>
+                    ★
+                  </span>
+                ))}
+              </div>
+              <div className="author">
+                <strong>Maria S.</strong>
+                <span>Restaurant Owner</span>
+              </div>
+            </div>
+          </article>
+          <article className="card testimonial-card">
+            <div className="testimonial-text">
+              <p>Professional tier's branch management is exactly what we needed for our growing chain.</p>
+              <div className="rating">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <span key={value} className={value <= 4 ? "star filled" : "star empty"} aria-hidden={true}>
+                    ★
+                  </span>
+                ))}
+              </div>
+              <div className="author">
+                <strong>James T.</strong>
+                <span>Restaurant Manager</span>
+              </div>
+            </div>
+          </article>
+          <article className="card testimonial-card">
+            <div className="testimonial-text">
+              <p>Real-time order tracking has reduced kitchen stress significantly.</p>
+              <div className="rating">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <span key={value} className={value <= 5 ? "star filled" : "star empty"} aria-hidden={true}>
+                    ★
+                  </span>
+                ))}
+              </div>
+              <div className="author">
+                <strong>Patricia K.</strong>
+                <span>Head Chef</span>
+              </div>
+            </div>
           </article>
         </div>
       </section>

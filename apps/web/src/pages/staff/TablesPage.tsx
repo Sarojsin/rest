@@ -27,7 +27,13 @@ const EMPTY_DRAFT: Draft = {
   sort_order: "",
 };
 
-function buildUrl(table: Table): string {
+/** Own-tenant surface info returned by the management API (plan 07 M7). */
+type RestaurantInfo = { customer_hostname: string };
+
+function buildUrl(table: Table, customerHostname: string | null): string {
+  // Locked per-tenant customer host (D5); falls back to same-origin in dev
+  // sessions where the management endpoint has not answered yet.
+  if (customerHostname) return `https://${customerHostname}/t/${table.qr_token ?? ""}`;
   return `${window.location.origin}/t/${table.qr_token ?? ""}`;
 }
 
@@ -56,6 +62,7 @@ export default function TablesPage() {
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [customerHostname, setCustomerHostname] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +83,21 @@ export default function TablesPage() {
     const timer = window.setInterval(() => void load(), 5000);
     return () => window.clearInterval(timer);
   }, [load]);
+
+  // Plan 07: QR codes must encode the tenant's locked customer hostname
+  // (e.g. https://harbor-table.platform.com/t/<token>) so the printed badge
+  // keeps working when guests scan it on that address.
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<RestaurantInfo>("/api/v1/restaurant")
+      .then((info) => {
+        if (!cancelled && info.customer_hostname) setCustomerHostname(info.customer_hostname);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const floorTables = useMemo(
     () => tables.filter((table) => table.status !== "ARCHIVED"),
@@ -98,7 +120,7 @@ export default function TablesPage() {
         const images: QrImage[] = [];
         for (const table of floorTables) {
           if (!table.qr_token) continue;
-          const url = buildUrl(table);
+          const url = buildUrl(table, customerHostname);
           const dataUrl = await QRCode.toDataURL(url, {
             margin: 1,
             width: 320,
@@ -117,7 +139,7 @@ export default function TablesPage() {
     return () => {
       cancelled = true;
     };
-  }, [qrSheetOpen, floorTables]);
+  }, [qrSheetOpen, floorTables, customerHostname]);
 
   async function rotate(tableId: string, displayName: string) {
     const confirmed = window.confirm(

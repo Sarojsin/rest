@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider } from "./lib/auth";
+import { ThemeProvider } from "./styles/ThemeProvider";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import CustomerMenuPage from "./pages/CustomerMenuPage";
@@ -31,32 +32,34 @@ function ScrollToTop() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/t/:qrToken" element={<CustomerMenuPage />} />
-        <Route path="/status/:statusToken" element={<CustomerStatusPage />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/t/:qrToken" element={<CustomerMenuPage />} />
+          <Route path="/status/:statusToken" element={<CustomerStatusPage />} />
 
-        <Route path="/staff" element={<StaffLayout />}>
-          <Route index element={<OverviewPage />} />
-          <Route path="tables" element={<TablesPage />} />
-          <Route path="tables/:tableId/order" element={<WaiterOrderPage />} />
-          <Route path="pending" element={<PendingPage />} />
-          <Route path="menu" element={<MenuManagePage />} />
-          <Route path="payments" element={<PaymentSettingsPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-        </Route>
+          <Route path="/staff" element={<StaffLayout />}>
+            <Route index element={<OverviewPage />} />
+            <Route path="tables" element={<TablesPage />} />
+            <Route path="tables/:tableId/order" element={<WaiterOrderPage />} />
+            <Route path="pending" element={<PendingPage />} />
+            <Route path="menu" element={<MenuManagePage />} />
+            <Route path="payments" element={<PaymentSettingsPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+          </Route>
 
-        {/* Kitchen and cashier are stations, not dashboard pages: full-bleed shell. */}
-        <Route element={<OpsLayout />}>
-          <Route path="/staff/kitchen" element={<KitchenPage />} />
-          <Route path="/staff/cashier" element={<CashierPage />} />
-        </Route>
+          {/* Kitchen and cashier are stations, not dashboard pages: full-bleed shell. */}
+          <Route element={<OpsLayout />}>
+            <Route path="/staff/kitchen" element={<KitchenPage />} />
+            <Route path="/staff/cashier" element={<CashierPage />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AuthProvider>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

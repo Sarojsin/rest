@@ -7,8 +7,6 @@
  */
 import { createApiClient } from "@rest/api-client";
 
-export * from "@rest/api-client";
-
 const TOKEN_KEY = "rest.access_token";
 
 export function getToken(): string | null {
@@ -27,3 +25,6 @@ const client = createApiClient({
 });
 
 export const apiFetch = client.request;
+
+/* Re-export types from the shared api-client package */
+export * from "@rest/api-client";

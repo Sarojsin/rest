@@ -1,0 +1,49 @@
+/* Enterprise Theme - shadcn-ui compatible
+   Maps to Website Plan Enterprise Tier
+   Purple accent for enterprise differentiation
+   Full white-label capable theming */
+[data-theme="enterprise"] {
+  color-scheme: light;
+
+  --bg: #faf0ff;
+  --surface: #ffffff;
+  --surface-2: #f5f3ff;
+  --surface-3: #e4e6f5;
+  --ink: #1e293b;
+  --muted: #64748b;
+  --line: #cbd5e1;
+  --line-strong: #94a3b8;
+
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
+  --on-primary: #ffffff;
+  --primary-soft: #faf5ff;
+
+  --success: #059669;
+  --success-soft: #d1fae5;
+  --warn: #f59e0b;
+  --warn-soft: #fef3c7;
+  --danger: #ef4444;
+  --danger-soft: #fecaca;
+  --info: #6366f1;
+  --info-soft: #bfdbfe;
+
+  --nav-bg: #ffffff;
+  --nav-ink: #1e293b;
+  --nav-muted: #64748b;
+  --nav-active-bg: #f5f3ff;
+  --nav-active-ink: #1e293b;
+
+  --focus: #8b5cf6;
+  --shadow-color: rgba(0, 0, 0, 0.05);
+
+  --font-body: var(--font-ui);
+  --font-heading: var(--font-ui);
+
+  --border-color: #e2e8f0;
+
+  /* Enterprise-specific semiotics */
+  --status-online: #10b981;
+  --status-offline: #6b7280;
+  --status-suspended: #f59e0b;
+}

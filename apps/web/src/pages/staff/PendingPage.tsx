@@ -87,6 +87,48 @@ export default function PendingPage() {
     }
   }
 
+  async function claimOrder(id: string) {
+    setBusyId(id);
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/orders/${id}/claim`, { method: "POST" });
+      await load(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : "Could not claim the order.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function escalateOrder(id: string) {
+    setBusyId(id);
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/orders/${id}/escalate`, {
+        method: "POST",
+        body: JSON.stringify({ note: "" }),
+      });
+      await load(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : "Could not escalate the order.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function releaseOrder(id: string) {
+    setBusyId(id);
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/orders/${id}/release`, { method: "POST" });
+      await load(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : "Could not release the order.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function acknowledge(id: string) {
     setBusyId(id);
     setError(null);
@@ -260,6 +302,36 @@ export default function PendingPage() {
                   >
                     Reject
                   </button>
+                  {order.claim_state === "" && order.status !== "ESCALATED" ? (
+                    <button
+                      className="btn"
+                      disabled={busyId === order.id}
+                      onClick={() => void claimOrder(order.id)}
+                      type="button"
+                    >
+                      Claim
+                    </button>
+                  ) : null}
+                  {order.claim_state === "CLAIMED" && order.status !== "ESCALATED" ? (
+                    <>
+                      <button
+                        className="btn"
+                        disabled={busyId === order.id}
+                        onClick={() => void escalateOrder(order.id)}
+                        type="button"
+                      >
+                        Escalate
+                      </button>
+                      <button
+                        className="btn"
+                        disabled={busyId === order.id}
+                        onClick={() => void releaseOrder(order.id)}
+                        type="button"
+                      >
+                        Release
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               </article>
             ))}
