@@ -36,9 +36,79 @@ class Settings(BaseSettings):
     bootstrap_owner_email: str = ""
     bootstrap_owner_password: str = ""
 
+    # Platform (Super Admin) realm — PA-0. Keep these empty outside local/dev.
+    # A real production domain is NOT assumed here (PA-ADR-011).
+    platform_secret_key: str = ""
+    platform_mfa_key: str = ""
+    platform_access_token_minutes: int = 15
+    platform_refresh_token_minutes: int = 720  # 12 h absolute cap
+    platform_step_up_minutes: int = 5
+    platform_require_mfa: bool = True
+    platform_admin_origin: str = ""
+    platform_api_origin: str = ""
+    platform_tenant_origin: str = ""
+    platform_cookie_secure: bool = True
+    platform_cookie_domain: str = ""  # must stay empty (host-only cookies)
+    platform_bootstrap_email: str = ""
+    platform_bootstrap_password: str = ""
+    platform_bootstrap_mfa_secret: str = ""  # dev/test only
+    platform_timezone: str = "UTC"
+    platform_login_max_attempts: int = 5
+    platform_login_lockout_minutes: int = 15
+    platform_mfa_ticket_minutes: int = 5
+    platform_enrollment_ticket_minutes: int = 10
+    platform_recovery_code_count: int = 10
+    platform_totp_issuer: str = "Restaurant Platform"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
+
+    @property
+    def allowed_origin_list(self) -> list[str]:
+        """Staff origins plus the configured platform origins (deduplicated)."""
+        origins = list(self.cors_origin_list)
+        for origin in (self.platform_admin_origin, self.platform_tenant_origin):
+            normalized = origin.strip().rstrip("/")
+            if normalized and normalized not in origins:
+                origins.append(normalized)
+        return origins
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == "production"
+
+    def validate_platform_config(self) -> None:
+        """Fail fast when the platform realm is misconfigured in production.
+
+        Development and tests may leave these empty; production may not.
+        No production domain is invented here — the operators supply it
+        (PA-ADR-011).
+        """
+        if not self.is_production:
+            return
+
+        errors: list[str] = []
+        if not self.platform_secret_key:
+            errors.append("PLATFORM_SECRET_KEY is required")
+        elif self.platform_secret_key == self.secret_key:
+            errors.append("PLATFORM_SECRET_KEY must differ from SECRET_KEY")
+        elif len(self.platform_secret_key) < 32:
+            errors.append("PLATFORM_SECRET_KEY must be at least 32 characters")
+        if not self.platform_mfa_key:
+            errors.append("PLATFORM_MFA_KEY is required")
+        elif len(self.platform_mfa_key) < 32:
+            errors.append("PLATFORM_MFA_KEY must be at least 32 characters")
+        if not self.platform_admin_origin:
+            errors.append("PLATFORM_ADMIN_ORIGIN is required")
+        if not self.platform_api_origin:
+            errors.append("PLATFORM_API_ORIGIN is required")
+        if self.platform_cookie_domain:
+            errors.append("PLATFORM_COOKIE_DOMAIN must be empty (host-only cookies)")
+        if not self.platform_cookie_secure:
+            errors.append("PLATFORM_COOKIE_SECURE must be true in production")
+        if errors:
+            raise RuntimeError("Invalid platform configuration: " + "; ".join(errors))
 
 
 settings = Settings()

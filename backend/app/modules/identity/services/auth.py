@@ -14,6 +14,7 @@ from app.modules.identity.models import User
 from app.modules.identity.schemas import LoginResponse, MembershipOut, MeOut
 from app.modules.tenancy.models import Restaurant, RestaurantMembership
 from app.modules.tenancy.permissions import ROLE_PERMISSIONS
+from app.shared import tenant_access
 from app.shared.errors import AppError
 
 
@@ -61,10 +62,20 @@ def login(db: Session, email: str, password: str) -> LoginResponse:
     if membership is None:
         raise AppError(403, "NO_MEMBERSHIP", "Forbidden", "No active restaurant membership.")
 
+    # Suspension blocks new sign-ins. The in-flight allowlist applies only to
+    # staff who were already authenticated before the suspension (PA D-6).
+    tenant_access.ensure_tenant_active(
+        status=membership.restaurant.status,
+        archived_at=membership.restaurant.archived_at,
+    )
+
     user.last_login_at = datetime.now(UTC)
     record_successful_login(user.id)
     db.commit()
     token = create_access_token(
-        user_id=user.id, membership_id=membership.id, restaurant_id=membership.restaurant_id
+        user_id=user.id,
+        membership_id=membership.id,
+        restaurant_id=membership.restaurant_id,
+        token_version=membership.token_version,
     )
     return LoginResponse(access_token=token, user=me_from_membership(user, membership))

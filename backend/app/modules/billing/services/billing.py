@@ -11,7 +11,8 @@ from app.modules.notifications.services import record_outbox
 from app.modules.operations.models import DiningSession, Order
 from app.modules.payments.models import Payment, PaymentMethodConfig
 from app.modules.payments.schemas import PaymentOut
-from app.modules.tenancy.models import RestaurantMembership
+from app.modules.tenancy.models import Restaurant, RestaurantMembership
+from app.shared import tenant_access
 from app.shared.enums import (
     BillStatus,
     DiningSessionStatus,
@@ -59,6 +60,21 @@ def get_session_bill(db: Session, restaurant_id: UUID, session_id: UUID) -> Bill
     )
 
 
+def _ensure_inflight(
+    db: Session, restaurant_id: UUID, started_at: datetime | None
+) -> None:
+    """Billing/payment is allowed only for a visit that predates suspension."""
+    restaurant = db.get(Restaurant, restaurant_id)
+    if restaurant is None:
+        raise AppError(404, "TENANT_NOT_FOUND", "Not found", "Restaurant was not found.")
+    tenant_access.ensure_inflight_allowed(
+        status=restaurant.status,
+        archived_at=restaurant.archived_at,
+        suspended_at=restaurant.suspended_at,
+        started_at=started_at,
+    )
+
+
 def issue_bill(db: Session, membership: RestaurantMembership, session_id: UUID) -> Bill:
     session = db.scalar(
         select(DiningSession).where(
@@ -70,6 +86,8 @@ def issue_bill(db: Session, membership: RestaurantMembership, session_id: UUID) 
         raise AppError(404, "SESSION_NOT_FOUND", "Not found", "Dining session was not found.")
     if session.status not in {DiningSessionStatus.OPEN, DiningSessionStatus.CHECKOUT_PENDING}:
         raise AppError(409, "SESSION_CLOSED", "Session closed", "This session cannot be billed.")
+
+    _ensure_inflight(db, membership.restaurant_id, session.opened_at)
 
     existing = get_session_bill(db, membership.restaurant_id, session_id)
     if existing and existing.status in {BillStatus.PAID, BillStatus.VOID}:
@@ -208,6 +226,12 @@ def record_payment(
         )
 
     bill = _load_bill(db, membership.restaurant_id, bill_id)
+    session = db.get(DiningSession, bill.dining_session_id)
+    _ensure_inflight(
+        db,
+        membership.restaurant_id,
+        session.opened_at if session is not None else None,
+    )
     if bill.status not in {BillStatus.ISSUED, BillStatus.PARTIALLY_PAID}:
         raise AppError(
             409, "BILL_NOT_PAYABLE", "Bill not payable", "Issue the bill before recording payment."

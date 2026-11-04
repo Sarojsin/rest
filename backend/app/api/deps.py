@@ -12,6 +12,7 @@ from app.modules.identity.models import User
 from app.modules.tenancy.middleware import tenant_context
 from app.modules.tenancy.models import RestaurantMembership
 from app.modules.tenancy.permissions import ROLE_PERMISSIONS
+from app.modules.tenancy.services.tenant_lifecycle import ensure_tenant_active
 from app.shared.errors import AppError
 
 
@@ -49,6 +50,10 @@ class Actor:
     @property
     def restaurant_id(self) -> UUID:
         return self.membership.restaurant_id
+
+    @property
+    def restaurant(self):
+        return self.membership.restaurant
 
     @property
     def permissions(self) -> set[str]:
@@ -95,6 +100,14 @@ def get_actor(
         or (tenant_id is not None and str(membership.restaurant_id) != tenant_id)
     ):
         raise AppError(401, "UNAUTHORIZED", "Unauthorized", "Authentication is required.")
+    # Force logout: a bumped membership version invalidates older tokens.
+    if int(payload.get("ver", 0)) != membership.token_version:
+        raise AppError(
+            401,
+            "TOKEN_REVOKED",
+            "Unauthorized",
+            "Session is no longer valid. Sign in again.",
+        )
     if membership.user.status != "ACTIVE":
         raise AppError(403, "ACCOUNT_DISABLED", "Forbidden", "This account is not active.")
     return Actor(user=membership.user, membership=membership)
@@ -103,6 +116,24 @@ def get_actor(
 def require_permission(permission: str) -> Callable[[Actor], Actor]:
     def dependency(actor: Actor = Depends(get_actor)) -> Actor:
         actor.require(permission)
+        return actor
+
+    return dependency
+
+
+def require_active_tenant(actor: Actor = Depends(get_actor)) -> Actor:
+    """Block new work for a suspended/cancelled/archived tenant (PA D-6)."""
+    ensure_tenant_active(actor.membership.restaurant)
+    return actor
+
+
+def require_permission_on_active_tenant(permission: str) -> Callable[[Actor], Actor]:
+    """Permission check plus active-tenant check for write routes."""
+
+    def dependency(
+        actor: Actor = Depends(require_permission(permission)),
+    ) -> Actor:
+        ensure_tenant_active(actor.membership.restaurant)
         return actor
 
     return dependency

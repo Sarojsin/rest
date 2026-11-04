@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import Actor, require_permission
+from app.api.deps import Actor, require_permission, require_permission_on_active_tenant
 from app.db.session import get_db
 from app.modules.operations.schemas import (
     CreateWaiterOrderRequest,
@@ -46,7 +46,7 @@ def get_order(
 @router.post("/orders", response_model=OrderOut)
 def create_waiter_order(
     payload: CreateWaiterOrderRequest,
-    actor: Actor = Depends(require_permission("orders.create")),
+    actor: Actor = Depends(require_permission_on_active_tenant("orders.create")),
     db: Session = Depends(get_db),
     idempotency_key: str = Depends(idempotency_key),
 ) -> OrderOut:

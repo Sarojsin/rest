@@ -18,7 +18,8 @@ from app.modules.operations.models import (
 )
 from app.modules.operations.schemas import OrderItemIn, OrderItemOut, OrderOut
 from app.modules.operations.transitions import assert_order_transition
-from app.modules.tenancy.models import RestaurantMembership, RestaurantSettings
+from app.modules.tenancy.models import Restaurant, RestaurantMembership, RestaurantSettings
+from app.shared import tenant_access
 from app.shared.enums import (
     DiningSessionStatus,
     KitchenItemStatus,
@@ -33,6 +34,16 @@ from app.shared.money import line_amounts
 def _tax_rate(db: Session, restaurant_id: UUID) -> int:
     settings = db.get(RestaurantSettings, restaurant_id)
     return settings.tax_rate_bps if settings else 1000
+
+
+def _ensure_new_work_allowed(db: Session, restaurant_id: UUID) -> None:
+    """Block new orders/sessions for a suspended tenant (PA D-6)."""
+    restaurant = db.get(Restaurant, restaurant_id)
+    if restaurant is None:
+        raise AppError(404, "TENANT_NOT_FOUND", "Not found", "Restaurant was not found.")
+    tenant_access.ensure_tenant_active(
+        status=restaurant.status, archived_at=restaurant.archived_at
+    )
 
 
 def order_to_out(order: Order) -> OrderOut:
@@ -194,6 +205,7 @@ def submit_qr_order(
     if existing is not None:
         return existing, ""
 
+    _ensure_new_work_allowed(db, restaurant_id)
     resolved = _resolve_items(db, restaurant_id, items)
     status_token = new_token()
     now = datetime.now(UTC)
@@ -261,6 +273,8 @@ def create_waiter_order(
     )
     if existing is not None:
         return existing
+
+    _ensure_new_work_allowed(db, restaurant_id)
 
     table = db.scalar(
         select(RestaurantTable).where(

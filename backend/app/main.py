@@ -9,10 +9,12 @@ from sqlalchemy.exc import OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import app.modules  # noqa: F401
+from app.api.platform.router import platform_router
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
+from app.modules.platform.services.bootstrap import bootstrap_platform, seed_platform_dev
 from app.seed import bootstrap_production, seed_if_empty
 from app.shared.errors import AppError, app_error_handler, http_error_handler, problem_body
 
@@ -21,7 +23,7 @@ def create_app() -> FastAPI:
     application = FastAPI(title=settings.app_name, version="0.1.0")
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origin_list or ["*"],
+        allow_origins=settings.allowed_origin_list or ["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -96,6 +98,7 @@ def create_app() -> FastAPI:
         return {"status": "ready"}
 
     application.include_router(api_router, prefix="/api/v1")
+    application.include_router(platform_router, prefix="/api/platform")
     return application
 
 
@@ -105,6 +108,9 @@ app = create_app()
 @app.on_event("startup")
 def on_startup() -> None:
     if settings.app_env == "production":
+        # Platform realm is required in production. Fails fast on missing or
+        # unsafe values; never invents a domain (PA-ADR-011).
+        settings.validate_platform_config()
         # In production, schema shape is owned by Alembic, not create_all.
         # Fail fast when the deployed database is missing migrations instead of
         # silently mutating it, and warn when it has drifted from the models.
@@ -140,6 +146,7 @@ def on_startup() -> None:
         _ = _engine  # fail fast early if engine cannot even be constructed
         db = _SessionLocal()
         try:
+            bootstrap_platform(db, settings)
             bootstrap_production(db, settings)
         finally:
             db.close()
@@ -149,5 +156,6 @@ def on_startup() -> None:
         db = SessionLocal()
         try:
             seed_if_empty(db)
+            seed_platform_dev(db, settings)
         finally:
             db.close()
