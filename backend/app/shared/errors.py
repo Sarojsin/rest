@@ -35,9 +35,12 @@ def problem_body(request: Request, status: int, code: str, title: str, detail: s
 
 
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    body = problem_body(request, exc.status, exc.code, exc.title, exc.detail)
+    if exc.extra:
+        body["details"] = exc.extra
     return JSONResponse(
         status_code=exc.status,
-        content=problem_body(request, exc.status, exc.code, exc.title, exc.detail),
+        content=body,
         media_type="application/problem+json",
     )
 
