@@ -2,14 +2,16 @@
 
 Cross-references: auth `05 §8` — endpoints `14 §3` — audit schema `03 §2` — roadmap `22 Phase 5` (thin) and optional Phase 6, Phase 10.
 
+**Execution plans for the expanded Super Admin product:** `super_admin/00-README.md`. That folder converts `super_admin_plan.md` into a controlled PA-0 → PA-3 roadmap. This file remains the security/philosophy source; the PA-1 MVP is a superset of the Phase 5 thin build and does not change the Phase 5 realm rules.
+
 **Philosophy:** "powerful, therefore dangerous." The super admin is a *different product* (separate app, auth, design language — denser, utilitarian — to prevent accidental context confusion), and it edits *platform* data only; tenant operational data is edited by the tenant's own staff in their dashboard. Support views; ops act; superadmin configures.
 
 ## 1. Realm hard rules
 
-1. Auth: `platform_admins` JWT only (`realm: "platform"`); separate secret; HttpOnly cookie at `admin.platform.com`; never shares cookies with app or tenant subdomains.
+1. Auth: `platform_admins` JWT only (`realm: "platform"`); separate secret; HttpOnly access + refresh cookies host-only to `api.platform.com`; admin app served from `admin.platform.com`; never shares cookies with app or tenant subdomains.
 2. Every route requires an explicit platform role; no implicit superadmin catch-all.
-3. Every state-changing action: mandatory `reason` → `platform_audit_logs` with before/after → owner email notification (except purely read views).
-4. Destructive actions (delete data, force logout-all, plan change) additionally require role ≥ `superadmin` and fresh re-auth (`last_auth_at` ≤ 60m; else step-up login).
+3. Every state-changing action: mandatory `reason` → `platform_audit_logs` with before/after; owner email notification is PA-2 (no mail transport in MVP — the audit log is the source of truth).
+4. Destructive actions (delete data, force logout-all, plan change, refund approval) additionally require the right role, typed confirmation, and fresh re-auth (`auth_time` ≤ 5 minutes, configurable; else step-up).
 5. Read support agents can see counters and configuration but **never** PII beyond contact data and never card data (19 T10).
 6. Impersonation: **not built in the pilot** (deferred; when it comes: read-only, superadmin role, tenant-owner email notice, separate ADR).
 

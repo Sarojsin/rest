@@ -96,6 +96,7 @@ Phases 1–5 (excluding 6) are the minimum viable platform. **Estimate ~16 engin
 | `23-decision-register.md` | ADR format, locked decisions, open decisions with owners |
 | `24-onboarding-trials.md` | Setup wizard tiers, abandonment, demo tenant, trial conversion |
 | `25-reports-analytics.md` | Report inventory, end-of-day, platform metrics |
+| `super_admin/00-README.md` | Execution plan for the expanded Super Admin spec (`super_admin_plan.md`): separate admin origin, cookie/CSRF auth, scope, data, API, frontend, roadmap, tests, parking lot |
 
 ## 5. How to use these plans
 
