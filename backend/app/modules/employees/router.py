@@ -1,43 +1,123 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import Actor, require_permission
 from app.db.session import get_db
 from app.modules.employees.models import Employee, Shift
-from app.modules.employees.schemas import EmployeeOut, EmployeeIn, ShiftOut, ShiftIn
+from app.modules.employees.schemas import (
+    EmployeeIn,
+    EmployeeOut,
+    EmployeeUpdateIn,
+    ShiftIn,
+    ShiftOut,
+)
 from app.shared.errors import AppError
-from app.shared.idempotency import idempotency_key
 
 router = APIRouter(tags=["employees"])
 
 
-@router.get("/", response_model=list[EmployeeOut])
+def _employee(db: Session, actor: Actor, employee_id: UUID) -> Employee:
+    employee = db.get(Employee, employee_id)
+    if employee is None or employee.restaurant_id != actor.restaurant_id:
+        raise AppError(
+            404, "EMPLOYEE_NOT_FOUND", "Not found", "Employee was not found."
+        )
+    return employee
+
+
+# ── Shifts (declared before /{employee_id} so "shifts" is not captured) ────
+
+@router.get("/shifts", response_model=list[ShiftOut])
+def list_shifts(
+    branch_id: UUID | None = Query(default=None),
+    actor: Actor = Depends(require_permission("shifts.read")),
+    db: Session = Depends(get_db),
+) -> list[ShiftOut]:
+    stmt = select(Shift).where(Shift.restaurant_id == actor.restaurant_id)
+    if branch_id:
+        stmt = stmt.where(Shift.branch_id == branch_id)
+    shifts = db.scalars(stmt.order_by(Shift.date, Shift.start_time)).all()
+    return [ShiftOut.model_validate(s) for s in shifts]
+
+
+@router.post("/shifts", response_model=ShiftOut, status_code=201)
+def create_shift(
+    payload: ShiftIn,
+    actor: Actor = Depends(require_permission("shifts.create")),
+    db: Session = Depends(get_db),
+) -> ShiftOut:
+    employee = _employee(db, actor, payload.employee_id)
+    if employee.branch_id is not None and employee.branch_id != payload.branch_id:
+        raise AppError(
+            422, "BRANCH_MISMATCH", "Branch mismatch",
+            "The shift branch does not match the employee's branch.",
+        )
+
+    duplicate = db.scalar(
+        select(Shift).where(
+            Shift.employee_id == payload.employee_id, Shift.date == payload.date
+        )
+    )
+    if duplicate:
+        raise AppError(
+            409, "SHIFT_EXISTS", "Shift exists",
+            "This employee already has a shift on that date.",
+        )
+
+    shift = Shift(
+        restaurant_id=actor.restaurant_id,
+        employee_id=payload.employee_id,
+        branch_id=payload.branch_id,
+        date=payload.date,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        status=payload.status,
+        notes=payload.notes,
+    )
+    db.add(shift)
+    db.commit()
+    db.refresh(shift)
+    return ShiftOut.model_validate(shift)
+
+
+# ── Employees ───────────────────────────────────────────────────────────────
+
+@router.get("", response_model=list[EmployeeOut])
 def list_employees(
+    branch_id: UUID | None = Query(default=None),
+    active_only: bool = Query(default=False),
     actor: Actor = Depends(require_permission("employees.read")),
     db: Session = Depends(get_db),
 ) -> list[EmployeeOut]:
-    employees = db.scalars(
-        select(Employee).where(Employee.restaurant_id == actor.restaurant_id)
-    ).all()
+    stmt = select(Employee).where(Employee.restaurant_id == actor.restaurant_id)
+    if branch_id:
+        stmt = stmt.where(Employee.branch_id == branch_id)
+    if active_only:
+        stmt = stmt.where(Employee.is_active.is_(True))
+    employees = db.scalars(stmt.order_by(Employee.name)).all()
     return [EmployeeOut.model_validate(e) for e in employees]
 
 
-@router.post("/", response_model=EmployeeOut)
+@router.post("", response_model=EmployeeOut, status_code=201)
 def create_employee(
     payload: EmployeeIn,
     actor: Actor = Depends(require_permission("employees.create")),
     db: Session = Depends(get_db),
 ) -> EmployeeOut:
-    # Verify branch exists if provided
-    if payload.branch_id:
-        branch = db.get(Employee.__table__.foreign_keys[0].target_reference, payload.branch_id)
-        # Actually let me just check branches table
-        from app.modules.branches.models import Branch
-        branch = db.get(Branch, payload.branch_id)
-        if not branch:
-            raise AppError(404, "BRANCH_NOT_FOUND", "Not found", "Branch was not found.")
+    duplicate = db.scalar(
+        select(Employee).where(
+            Employee.restaurant_id == actor.restaurant_id,
+            Employee.email == payload.email,
+        )
+    )
+    if duplicate:
+        raise AppError(
+            409, "EMPLOYEE_EMAIL_EXISTS", "Email in use",
+            "An employee with this email already exists.",
+        )
 
     employee = Employee(
         restaurant_id=actor.restaurant_id,
@@ -50,8 +130,8 @@ def create_employee(
         branch_id=payload.branch_id,
     )
     db.add(employee)
-    db.flush()
     db.commit()
+    db.refresh(employee)
     return EmployeeOut.model_validate(employee)
 
 
@@ -60,47 +140,21 @@ def get_employee(
     employee_id: UUID,
     actor: Actor = Depends(require_permission("employees.read")),
     db: Session = Depends(get_db),
-) -> EmployeeOut | None:
-    employee = db.get(Employee, employee_id)
-    if employee is None or employee.restaurant_id != actor.restaurant_id:
-        return None
-    return EmployeeOut.model_validate(employee)
+) -> EmployeeOut:
+    return EmployeeOut.model_validate(_employee(db, actor, employee_id))
 
 
-# ── Shifts ──────────────────────────────────────────────────────────────────
-
-@router.get("/shifts", response_model=list[ShiftOut])
-def list_shifts(
-    actor: Actor = Depends(require_permission("shifts.read")),
+@router.patch("/{employee_id}", response_model=EmployeeOut)
+def update_employee(
+    employee_id: UUID,
+    payload: EmployeeUpdateIn,
+    actor: Actor = Depends(require_permission("employees.update")),
     db: Session = Depends(get_db),
-) -> list[ShiftOut]:
-    shifts = db.scalars(
-        select(Shift).where(Shift.branch_id == actor.restaurant_id)
-    ).all()
-    return [ShiftOut.model_validate(s) for s in shifts]
-
-
-@router.post("/shifts", response_model=ShiftOut)
-def create_shift(
-    payload: ShiftIn,
-    actor: Actor = Depends(require_permission("shifts.create")),
-    db: Session = Depends(get_db),
-) -> ShiftOut:
-    # Verify employee exists
-    employee = db.get(Employee, payload.employee_id)
-    if not employee or employee.restaurant_id != actor.restaurant_id:
-        raise AppError(404, "EMPLOYEE_NOT_FOUND", "Not found", "Employee was not found.")
-
-    shift = Shift(
-        employee_id=payload.employee_id,
-        branch_id=payload.branch_id,
-        date=payload.date,
-        start_time=payload.start_time,
-        end_time=payload.end_time,
-        status=payload.status,
-        notes=payload.notes,
-    )
-    db.add(shift)
-    db.flush()
+) -> EmployeeOut:
+    employee = _employee(db, actor, employee_id)
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        setattr(employee, field, value)
     db.commit()
-    return ShiftOut.model_validate(shift)
+    db.refresh(employee)
+    return EmployeeOut.model_validate(employee)

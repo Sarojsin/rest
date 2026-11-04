@@ -36,6 +36,18 @@ class EmployeeIn(BaseModel):
 
 # ── Shift ───────────────────────────────────────────────────────────────────
 
+class EmployeeUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    email: str | None = Field(default=None, min_length=1, max_length=120)
+    phone: str | None = None
+    role: str | None = None
+    hire_date: datetime | None = None
+    is_active: bool | None = None
+    branch_id: UUID | None = None
+
+
 class ShiftOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

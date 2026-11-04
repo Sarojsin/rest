@@ -17,6 +17,15 @@ class Restaurant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     settings: Mapped["RestaurantSettings"] = relationship(back_populates="restaurant")
     memberships: Mapped[list["RestaurantMembership"]] = relationship(back_populates="restaurant")
+    branches: Mapped[list["Branch"]] = relationship(back_populates="restaurant")  # noqa: F821
+    employees: Mapped[list["Employee"]] = relationship(back_populates="restaurant")  # noqa: F821
+    loyalty_accounts: Mapped[list["LoyaltyAccount"]] = relationship(  # noqa: F821
+        back_populates="restaurant"
+    )
+    reviews: Mapped[list["Review"]] = relationship(back_populates="restaurant")  # noqa: F821
+    subscriptions: Mapped[list["Subscription"]] = relationship(  # noqa: F821
+        back_populates="restaurant"
+    )
 
 
 class RestaurantSettings(TimestampMixin, Base):

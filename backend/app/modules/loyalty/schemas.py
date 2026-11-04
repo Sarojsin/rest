@@ -23,8 +23,7 @@ class LoyaltyAccountOut(BaseModel):
 class LoyaltyAccountIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    membership_id: UUID
-    points_balance: int = 0
+    points_balance: int = Field(default=0, ge=0)
     tier: str = "STANDARD"
 
 
@@ -45,11 +44,10 @@ class LoyaltyTransactionOut(BaseModel):
 class LoyaltyTransactionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    membership_id: UUID
-    type: str  # EARN, REDEEM
-    points: int
-    reason: str
-    reference_id: UUID | None
+    type: str = Field(pattern="^(EARN|REDEEM)$")
+    points: int = Field(gt=0)
+    reason: str = Field(min_length=1, max_length=500)
+    reference_id: UUID | None = None
 
 
 # ── Coupon ──────────────────────────────────────────────────────────────────
@@ -104,6 +102,5 @@ class CouponRedemptionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     coupon_id: UUID
-    membership_id: UUID
     order_id: UUID
-    discount_amount_minor: int
+    discount_amount_minor: int = Field(ge=0)

@@ -8,6 +8,7 @@ from app.shared.schemas import ORMModel
 # ── Branch ──────────────────────────────────────────────────────────────────
 
 class BranchOut(ORMModel):
+    id: UUID
     name: str
     code: str | None
     address: str | None
@@ -33,11 +34,27 @@ class BranchIn(BaseModel):
     currency_code: str = "USD"
     is_active: bool = True
     opening_hours: str | None = None
+    settings_json: dict = Field(default_factory=dict)
+
+
+class BranchUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    code: str | None = Field(default=None, max_length=32)
+    address: str | None = None
+    phone: str | None = None
+    timezone: str | None = None
+    currency_code: str | None = None
+    is_active: bool | None = None
+    opening_hours: str | None = None
+    settings_json: dict | None = None
 
 
 # ── Branch Table ────────────────────────────────────────────────────────────
 
 class BranchTableOut(ORMModel):
+    id: UUID
     table_code: str
     display_name: str
     seating_capacity: int | None
@@ -58,6 +75,8 @@ class BranchTableIn(BaseModel):
 # ── Branch Manager ────────────────────────────────────────────────────────
 
 class BranchManagerOut(ORMModel):
+    id: UUID
+    membership_id: UUID
     role: str
     is_active: bool
     assigned_at: datetime
@@ -74,6 +93,7 @@ class BranchManagerIn(BaseModel):
 
 class BranchSalesReportOut(ORMModel):
     id: UUID
+    branch_id: UUID
     report_date: datetime
     total_sales_minor: int
     total_sales_display: str
@@ -84,26 +104,28 @@ class BranchSalesReportOut(ORMModel):
     total_revenue_display: str
     average_ticket_minor: int
     payment_breakdown: dict
-    created_at: datetime
+    notes: str | None = None
 
 
 class BranchSalesReportIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    branch_id: UUID
-    report_date: datetime
+    report_date: datetime | None = None
     total_sales_minor: int = 0
     total_orders: int = 0
     total_orders_completed: int = 0
     total_orders_pending: int = 0
     total_revenue_minor: int = 0
+    average_ticket_minor: int = 0
     payment_breakdown: dict | None = None
+    notes: str | None = None
 
 
 # ── Branch Dashboard Summary ──────────────────────────────────────────────
 
 class BranchDashboardSummaryOut(ORMModel):
     id: UUID
+    branch_id: UUID
     summary_date: datetime
     total_revenue_minor: int
     total_revenue_display: str
@@ -116,8 +138,6 @@ class BranchDashboardSummaryOut(ORMModel):
 class BranchDashboardSummaryIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    branch_id: UUID
-    summary_date: datetime
     total_revenue_minor: int = 0
     total_orders: int = 0
     average_rating: float | None = None
@@ -135,9 +155,3 @@ class OwnerDashboardSummaryOut(BaseModel):
     branch_count: int
     active_branch_count: int
     branches: list[BranchDashboardSummaryOut]
-
-
-class OwnerDashboardSummaryIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    restaurant_id: UUID

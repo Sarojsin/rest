@@ -15,6 +15,26 @@ OWNER = {
     "staff.manage",
     "settings.manage",
     "audit.read",
+    # Phase 11-16 modules
+    "branches.read",
+    "branches.create",
+    "branches.update",
+    "inventory.read",
+    "inventory.manage",
+    "employees.read",
+    "employees.create",
+    "employees.update",
+    "shifts.read",
+    "shifts.create",
+    "loyalty.read",
+    "loyalty.manage",
+    "loyalty.redeem",
+    "reviews.read",
+    "reviews.create",
+    "reviews.respond",
+    "subscriptions.read",
+    "subscriptions.create",
+    "subscriptions.manage",
 }
 
 MANAGER = OWNER.copy()
@@ -26,12 +46,20 @@ WAITER = {
     "orders.serve",
     "kitchen.read",
     "tables.manage",
+    "branches.read",
+    "inventory.read",
+    "employees.read",
+    "shifts.read",
+    "loyalty.read",
+    "reviews.read",
+    "reviews.create",
 }
 
 KITCHEN = {
     "orders.read",
     "kitchen.read",
     "kitchen.update",
+    "inventory.read",
 }
 
 CASHIER = {
@@ -40,6 +68,11 @@ CASHIER = {
     "payments.record",
     "reports.read",
     "kitchen.read",
+    "branches.read",
+    "loyalty.read",
+    "loyalty.redeem",
+    "reviews.read",
+    "subscriptions.read",
 }
 
 ROLE_PERMISSIONS = {

@@ -8,12 +8,14 @@ from app.shared.schemas import ORMModel
 # ── Ingredient ──────────────────────────────────────────────────────────────
 
 class IngredientOut(ORMModel):
+    id: UUID
     name: str
     code: str | None
     unit: str
     current_stock: int
     minimum_stock: int
     status: str
+    supplier_id: UUID | None
     supplier_name: str | None = None
 
 
@@ -23,13 +25,25 @@ class IngredientIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     code: str | None = Field(default=None, max_length=32)
     unit: str = Field(default="pieces", min_length=1, max_length=32)
+    current_stock: int = Field(default=0, ge=0)
     minimum_stock: int = Field(default=0, ge=0)
+    supplier_id: UUID | None = None
+
+
+class IngredientUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    code: str | None = Field(default=None, max_length=32)
+    unit: str | None = Field(default=None, min_length=1, max_length=32)
+    minimum_stock: int | None = Field(default=None, ge=0)
     supplier_id: UUID | None = None
 
 
 # ── Supplier ────────────────────────────────────────────────────────────────
 
 class SupplierOut(ORMModel):
+    id: UUID
     name: str
     contact_name: str | None
     phone: str | None
@@ -60,8 +74,8 @@ class SupplierIn(BaseModel):
     country: str | None = None
     tax_id: str | None = None
     is_active: bool = True
-    rating: int | None = None
-    average_delivery_days: int | None = None
+    rating: int | None = Field(default=None, ge=1, le=5)
+    average_delivery_days: int | None = Field(default=None, ge=0)
     notes: str | None = None
 
 
@@ -74,29 +88,26 @@ class PurchaseOrderItemIn(BaseModel):
 
 
 class PurchaseOrderItemOut(ORMModel):
-    ingredient_name: str
+    id: UUID
+    ingredient_id: UUID
+    ingredient_name: str | None = None
     quantity: int
     unit_price_minor: int
     total_minor: int
     received_quantity: int
 
 
-class PurchaseOrderItemInBase(BaseModel):
-    ingredient_id: UUID
-    quantity: int = Field(ge=1)
-
-
 class PurchaseOrderOut(ORMModel):
     id: UUID
     code: str
     status: str
-    supplier_name: str
+    supplier_id: UUID
+    supplier_name: str | None = None
     expected_date: datetime | None
     received_date: datetime | None
     notes: str | None
     total_minor: int
     items: list[PurchaseOrderItemOut] = []
-    supplier_id: UUID
 
 
 class PurchaseOrderIn(BaseModel):
@@ -113,10 +124,13 @@ class PurchaseOrderIn(BaseModel):
 # ── Recipe Ingredient ─────────────────────────────────────────────────────
 
 class RecipeIngredientOut(ORMModel):
-    ingredient_name: str
+    id: UUID
+    ingredient_id: UUID
+    menu_item_id: UUID
+    ingredient_name: str | None = None
     quantity_per_serving: int
     quantity_per_order: int
-    ingredient_unit: str
+    ingredient_unit: str = "pieces"
 
 
 class RecipeIngredientIn(BaseModel):
@@ -127,24 +141,33 @@ class RecipeIngredientIn(BaseModel):
     quantity_per_order: int = Field(default=0, ge=0)
 
 
+class RecipeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[RecipeIngredientIn] = Field(min_length=0, max_length=100)
+
+
 # ── Stock Movement ──────────────────────────────────────────────────────────
 
 class StockMovementOut(ORMModel):
+    id: UUID
+    ingredient_id: UUID
     movement_type: str
     quantity: int
     new_balance: int
     reason: str | None
     reference_type: str | None
     reference_id: UUID | None
-    recorded_by: str | None
+    recorded_by: str | None = None
     created_at: datetime
 
 
 class StockMovementIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    ingredient_id: UUID
     movement_type: str = Field(..., pattern="^(RECEIVE|ADJUST|DEDUCT|WASTE)$")
-    quantity: int = Field(ge=1)
+    quantity: int
     reason: str | None = None
     reference_id: UUID | None = None
     reference_type: str | None = None  # PO, ORDER, ADJUST, MANUAL
