@@ -1,0 +1,87 @@
+"""CSRF and Origin enforcement for the platform realm (PA-0.6).
+
+Every non-GET platform request must:
+
+1. come from ``PLATFORM_ADMIN_ORIGIN`` (Origin, falling back to Referer), and
+2. carry ``X-CSRF-Token`` equal to the readable ``platform_csrf`` cookie,
+   except for documented pre-session and refresh bootstrap routes.
+
+The exemptions are bootstrap endpoints that either run before a CSRF cookie
+exists (login, MFA), or are explicitly SameSite=Strict + origin-checked
+(``/auth/refresh`` — see plan 03 §3.4).
+"""
+
+from __future__ import annotations
+
+import hmac
+from urllib.parse import urlsplit
+
+from fastapi import Request
+
+from app.core.config import settings
+from app.modules.platform.constants import PLATFORM_CSRF_COOKIE, PLATFORM_CSRF_HEADER
+from app.shared.errors import AppError
+
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+# Paths are full request paths (platform router mounted at /api/platform).
+CSRF_EXEMPT_PATHS = frozenset(
+    {
+        "/api/platform/auth/login",
+        "/api/platform/auth/mfa/enroll/start",
+        "/api/platform/auth/mfa/enroll/verify",
+        "/api/platform/auth/mfa/verify",
+        "/api/platform/auth/refresh",
+    }
+)
+
+
+def _normalize(origin: str) -> str:
+    return origin.strip().rstrip("/")
+
+
+def request_origin(request: Request) -> str | None:
+    origin = request.headers.get("origin")
+    if origin:
+        return _normalize(origin)
+    referer = request.headers.get("referer")
+    if referer:
+        parts = urlsplit(referer)
+        if parts.scheme and parts.netloc:
+            return f"{parts.scheme}://{parts.netloc}"
+    return None
+
+
+def validate_origin(request: Request) -> None:
+    allowed = _normalize(settings.platform_admin_origin)
+    origin = request_origin(request)
+    if not allowed or origin is None or not hmac.compare_digest(origin, allowed):
+        raise AppError(
+            403,
+            "ORIGIN_INVALID",
+            "Forbidden",
+            "The request origin is not allowed.",
+        )
+
+
+def validate_csrf(request: Request) -> None:
+    cookie = request.cookies.get(PLATFORM_CSRF_COOKIE) or ""
+    header = request.headers.get(PLATFORM_CSRF_HEADER) or ""
+    if not cookie or not header or not hmac.compare_digest(cookie, header):
+        raise AppError(
+            403,
+            "CSRF_INVALID",
+            "Forbidden",
+            "The request could not be verified.",
+        )
+
+
+def platform_request_guard(request: Request) -> None:
+    """FastAPI dependency applied to the whole platform router."""
+    if request.method in SAFE_METHODS:
+        return
+
+    validate_origin(request)
+    if request.url.path in CSRF_EXEMPT_PATHS:
+        return
+    validate_csrf(request)

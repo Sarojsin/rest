@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -11,9 +12,24 @@ class Restaurant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     slug: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    # Access state: ACTIVE / SUSPENDED / CANCELLED. Trial is a subscription
+    # state, never duplicated here (PA D-5).
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
     currency_code: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+
+    # Lifecycle columns (PA-0.11 / plan 04 §2.1). Soft delete only: no row is
+    # ever destroyed by the platform in PA-1.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    suspended_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    suspended_reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    legal_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     settings: Mapped["RestaurantSettings"] = relationship(back_populates="restaurant")
     memberships: Mapped[list["RestaurantMembership"]] = relationship(back_populates="restaurant")
@@ -62,6 +78,9 @@ class RestaurantMembership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+    # Bumped to invalidate every outstanding staff token for this membership
+    # (PA-0.10 / force logout). Tokens without a version are treated as 0.
+    token_version: Mapped[int] = mapped_column(nullable=False, default=0)
 
     restaurant: Mapped[Restaurant] = relationship(back_populates="memberships")
     user: Mapped["User"] = relationship(back_populates="memberships")  # noqa: F821
