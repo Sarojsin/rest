@@ -13,7 +13,13 @@ export type IconName =
   | "bars"
   | "close"
   | "search"
-  | "expand";
+  | "expand"
+  | "branches"
+  | "inventory"
+  | "staff"
+  | "loyalty"
+  | "reviews"
+  | "subscription";
 
 const PATHS: Record<IconName, ReactNode> = {
   overview: (
@@ -80,6 +86,43 @@ const PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   expand: <path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" />,
+  branches: (
+    <>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="18" cy="6" r="2.5" />
+      <circle cx="12" cy="18" r="2.5" />
+      <path d="M6 8.5v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2M12 12.5v3" />
+    </>
+  ),
+  inventory: (
+    <>
+      <path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5Z" />
+      <path d="M3 7.5 12 12l9-4.5M12 12v9" />
+    </>
+  ),
+  staff: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.8M17.5 20a5.5 5.5 0 0 0-3-4.9" />
+    </>
+  ),
+  loyalty: (
+    <>
+      <path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9Z" />
+    </>
+  ),
+  reviews: (
+    <>
+      <path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5Z" />
+      <path d="M8 10.5h8M8 14h5" />
+    </>
+  ),
+  subscription: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18M7 15h4" />
+    </>
+  ),
 };
 
 export function Icon({

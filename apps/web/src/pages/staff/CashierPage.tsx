@@ -5,7 +5,9 @@ import {
   getToken,
   newIdempotencyKey,
   ApiError,
-    type Table,
+  type Bill,
+  type PaymentMethodConfig,
+  type Table,
 } from "../../lib/api";
 import { StatusBadge } from "../../components/StatusBadge";
 

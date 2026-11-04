@@ -25,9 +25,9 @@ function waitingLabel(iso: string, now: number): string {
 
 export default function OverviewPage() {
   const { has } = useAuth();
-  const [report, setReport] = useState<any | null>(null);
+  const [report, setReport] = useState<SalesReport | null>(null);
   const [tables, setTables] = useState<any[]>([]);
-  const [pending, setPending] = useState<any[]>([]);
+  const [pending, setPending] = useState<Order[]>([]);
   const [calls, setCalls] = useState<ServiceCall[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -255,6 +255,36 @@ export default function OverviewPage() {
                 {has("bills.issue") ? (
                   <Link className="quick-action" to="/staff/cashier">
                     Cashier &amp; bills <span aria-hidden="true">→</span>
+                  </Link>
+                ) : null}
+                {has("branches.read") ? (
+                  <Link className="quick-action" to="/staff/branches">
+                    Branches &amp; managers <span aria-hidden="true">→</span>
+                  </Link>
+                ) : null}
+                {has("inventory.read") ? (
+                  <Link className="quick-action" to="/staff/inventory">
+                    Stock &amp; suppliers <span aria-hidden="true">→</span>
+                  </Link>
+                ) : null}
+                {has("employees.read") ? (
+                  <Link className="quick-action" to="/staff/employees">
+                    Employees &amp; shifts <span aria-hidden="true">→</span>
+                  </Link>
+                ) : null}
+                {has("loyalty.read") ? (
+                  <Link className="quick-action" to="/staff/loyalty">
+                    Loyalty &amp; coupons <span aria-hidden="true">→</span>
+                  </Link>
+                ) : null}
+                {has("reviews.read") ? (
+                  <Link className="quick-action" to="/staff/reviews">
+                    Guest reviews <span aria-hidden="true">→</span>
+                  </Link>
+                ) : null}
+                {has("subscriptions.read") ? (
+                  <Link className="quick-action" to="/staff/subscription">
+                    Subscription &amp; billing <span aria-hidden="true">→</span>
                   </Link>
                 ) : null}
               </div>

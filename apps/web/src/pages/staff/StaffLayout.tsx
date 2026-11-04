@@ -156,6 +156,12 @@ const NAV: NavItem[] = [
   { to: "/staff/menu", label: "Menu", icon: "menu", permissions: ["menu.manage"] },
   { to: "/staff/payments", label: "Payment methods", icon: "qr", permissions: ["settings.manage"] },
   { to: "/staff/reports", label: "Reports", icon: "reports", permissions: ["reports.read"] },
+  { to: "/staff/branches", label: "Branches", icon: "branches", permissions: ["branches.read"] },
+  { to: "/staff/inventory", label: "Inventory", icon: "inventory", permissions: ["inventory.read"] },
+  { to: "/staff/employees", label: "Employees", icon: "staff", permissions: ["employees.read"] },
+  { to: "/staff/loyalty", label: "Loyalty", icon: "loyalty", permissions: ["loyalty.read"] },
+  { to: "/staff/reviews", label: "Reviews", icon: "reviews", permissions: ["reviews.read"] },
+  { to: "/staff/subscription", label: "Subscription", icon: "subscription", permissions: ["subscriptions.read"] },
 ];
 
 const TITLES: Array<{ match: (path: string) => boolean; title: string; crumb: string }> = [
@@ -166,6 +172,12 @@ const TITLES: Array<{ match: (path: string) => boolean; title: string; crumb: st
   { match: (p) => p === "/staff/menu", title: "Menu management", crumb: "Categories & items" },
   { match: (p) => p === "/staff/payments", title: "Payment methods", crumb: "QR codes & cash" },
   { match: (p) => p === "/staff/reports", title: "Reports", crumb: "Sales & audit" },
+  { match: (p) => p === "/staff/branches", title: "Branches", crumb: "Locations & managers" },
+  { match: (p) => p === "/staff/inventory", title: "Inventory", crumb: "Stock, suppliers & recipes" },
+  { match: (p) => p === "/staff/employees", title: "Employees", crumb: "Staff & shifts" },
+  { match: (p) => p === "/staff/loyalty", title: "Loyalty", crumb: "Points & coupons" },
+  { match: (p) => p === "/staff/reviews", title: "Reviews", crumb: "Guest feedback" },
+  { match: (p) => p === "/staff/subscription", title: "Subscription", crumb: "Plans & billing" },
 ];
 
 export default function StaffLayout() {

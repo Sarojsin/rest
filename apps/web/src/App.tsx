@@ -17,6 +17,12 @@ import MenuManagePage from "./pages/staff/MenuManagePage";
 import PaymentSettingsPage from "./pages/staff/PaymentSettingsPage";
 import ReportsPage from "./pages/staff/ReportsPage";
 import WaiterOrderPage from "./pages/staff/WaiterOrderPage";
+import BranchesPage from "./pages/staff/BranchesPage";
+import InventoryPage from "./pages/staff/InventoryPage";
+import EmployeesPage from "./pages/staff/EmployeesPage";
+import LoyaltyPage from "./pages/staff/LoyaltyPage";
+import ReviewsPage from "./pages/staff/ReviewsPage";
+import SubscriptionPage from "./pages/staff/SubscriptionPage";
 
 /**
  * SPA navigation keeps the previous scroll offset by default, which lands staff
@@ -49,6 +55,12 @@ export default function App() {
             <Route path="menu" element={<MenuManagePage />} />
             <Route path="payments" element={<PaymentSettingsPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="branches" element={<BranchesPage />} />
+            <Route path="inventory" element={<InventoryPage />} />
+            <Route path="employees" element={<EmployeesPage />} />
+            <Route path="loyalty" element={<LoyaltyPage />} />
+            <Route path="reviews" element={<ReviewsPage />} />
+            <Route path="subscription" element={<SubscriptionPage />} />
           </Route>
 
           {/* Kitchen and cashier are stations, not dashboard pages: full-bleed shell. */}
