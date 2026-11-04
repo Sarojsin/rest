@@ -282,6 +282,134 @@ export type RecordPaymentRequest = {
   note?: string;
 };
 
+export type Payment = {
+  id: string;
+  method: string;
+  status: string;
+  amount_minor: number;
+  currency_code: string;
+  note: string;
+  created_at: string;
+  succeeded_at: string | null;
+};
+
+export type PaymentMethodConfig = {
+  id: string;
+  label: string;
+  kind: "CASH" | "QR";
+  account_hint: string;
+  instructions: string;
+  is_active: boolean;
+  display_order: number;
+  has_qr_image: boolean;
+  qr_image_url: string | null;
+};
+
+export type BillItem = {
+  id: string;
+  description_snapshot: string;
+  quantity: number;
+  unit_price_minor: number;
+  tax_minor: number;
+  line_total_minor: number;
+};
+
+export type Bill = {
+  id: string;
+  dining_session_id: string;
+  status: string;
+  currency_code: string;
+  subtotal_minor: number;
+  tax_minor: number;
+  total_minor: number;
+  paid_minor: number;
+  balance_due_minor: number;
+  version: number;
+  issued_at: string | null;
+  items: BillItem[];
+  payments: Payment[];
+};
+
+/* -------------------------------------------------------------------------
+   Reporting / Audit
+   ------------------------------------------------------------------------- */
+
+export type SalesReportTopItem = {
+  name: string;
+  quantity: number;
+  sales_minor: number;
+};
+
+export type SalesReport = {
+  currency_code: string;
+  order_count: number;
+  accepted_order_count: number;
+  cancelled_order_count: number;
+  gross_sales_minor: number;
+  tax_minor: number;
+  collected_minor: number;
+  outstanding_minor: number;
+  top_items: SalesReportTopItem[];
+};
+
+export type AuditEvent = {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  occurred_at: string;
+  detail: string;
+};
+
+/* -------------------------------------------------------------------------
+   Service calls
+   ------------------------------------------------------------------------- */
+
+export type ServiceCall = {
+  id: string;
+  kind: string;
+  table_id: string;
+  table_display_name: string;
+  ticket_number: number | null;
+  items_summary: string;
+  status: string;
+  requested_at: string;
+  acknowledged_at: string | null;
+};
+
+/* -------------------------------------------------------------------------
+   Public (customer QR) surface
+   ------------------------------------------------------------------------- */
+
+export type PublicServiceCall = {
+  id: string;
+  status: string;
+  requested_at: string;
+  acknowledged_at: string | null;
+  deduplicated: boolean;
+};
+
+export type PublicOrderItem = {
+  name: string;
+  quantity: number;
+  unit_price_minor: number;
+  line_total_minor: number;
+};
+
+export type PublicOrderStatus = {
+  order_id: string;
+  status: string;
+  restaurant_name: string;
+  table_display_name: string;
+  submitted_at: string;
+  accepted_at: string | null;
+  rejected_at: string | null;
+  rejection_note: string;
+  items: PublicOrderItem[];
+  total_minor: number;
+  currency_code: string;
+};
+
 /* -------------------------------------------------------------------------
    Plan 11 — Inventory & Stock Management
    ------------------------------------------------------------------------- */
@@ -289,45 +417,54 @@ export type RecordPaymentRequest = {
 export type Ingredient = {
   id: string;
   name: string;
-  description?: string;
+  code: string | null;
+  unit: string;
   current_stock: number;
   minimum_stock: number;
-  unit: string;
-  low_stock_alert: boolean;
-  supplier_id?: string;
-  category?: string;
-  recipe_ids?: string[];
+  status: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
+  supplier_id: string | null;
+  supplier_name?: string | null;
 };
 
 export type Supplier = {
   id: string;
   name: string;
-  contact_name?: string;
-  email?: string;
-  phone?: string;
-  rating: number;
-  lead_days: number;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string | null;
+  tax_id: string | null;
   is_active: boolean;
-  created_at: string;
-};
-
-export type PurchaseOrder = {
-  id: string;
-  supplier_id: string;
-  status: "DRAFT" | "SUBMITTED" | "RECEIVED" | "CANCELLED";
-  items: PurchaseOrderItem[];
-  total_minor: number;
-  created_at: string;
-  updated_at: string;
-  expected_delivery?: string;
+  rating: number | null;
+  average_delivery_days: number | null;
+  notes: string | null;
 };
 
 export type PurchaseOrderItem = {
   id: string;
   ingredient_id: string;
-  quantity_ordered: number;
+  ingredient_name?: string | null;
+  quantity: number;
   unit_price_minor: number;
-  line_total_minor: number;
+  total_minor: number;
+  received_quantity: number;
+};
+
+export type PurchaseOrder = {
+  id: string;
+  code: string;
+  status: "DRAFT" | "SUBMITTED" | "RECEIVED" | "CANCELLED";
+  supplier_id: string;
+  supplier_name?: string | null;
+  expected_date: string | null;
+  received_date: string | null;
+  notes: string | null;
+  total_minor: number;
+  items: PurchaseOrderItem[];
 };
 
 export type StockMovement = {
@@ -335,18 +472,22 @@ export type StockMovement = {
   ingredient_id: string;
   movement_type: "RECEIVE" | "ADJUST" | "DEDUCT" | "WASTE";
   quantity: number;
-  previous_stock: number;
-  new_stock: number;
-  reason?: string;
-  performed_by_membership_id: string;
+  new_balance: number;
+  reason: string | null;
+  reference_type: string | null;
+  reference_id: string | null;
+  recorded_by: string | null;
   created_at: string;
 };
 
 export type RecipeIngredient = {
   id: string;
   ingredient_id: string;
-  quantity_minor: number;
-  ingredient_name: string;
+  menu_item_id: string;
+  ingredient_name?: string | null;
+  quantity_per_serving: number;
+  quantity_per_order: number;
+  ingredient_unit: string;
 };
 
 /* -------------------------------------------------------------------------
@@ -356,31 +497,30 @@ export type RecipeIngredient = {
 export type Branch = {
   id: string;
   name: string;
-  code?: string;
-  address?: string;
-  phone?: string;
+  code: string | null;
+  address: string | null;
+  phone: string | null;
   timezone: string;
   currency_code: string;
   is_active: boolean;
-  opening_hours?: string;
-  settings_json: string;
-  owner_membership_id?: string;
-  restaurant_name?: string;
-  manager_name?: string;
+  opening_hours: string | null;
+  settings_json: Record<string, unknown>;
+  owner_membership_id: string | null;
+  restaurant_name?: string | null;
+  manager_name?: string | null;
 };
 
 export type BranchTable = {
   id: string;
   table_code: string;
   display_name: string;
-  seating_capacity?: number;
+  seating_capacity: number | null;
   status: string;
   qr_code_active: boolean;
 };
 
 export type BranchManager = {
   id: string;
-  branch_id: string;
   membership_id: string;
   role: string;
   is_active: boolean;
@@ -389,6 +529,7 @@ export type BranchManager = {
 
 export type BranchSalesReport = {
   id: string;
+  branch_id: string;
   report_date: string;
   total_sales_minor: number;
   total_sales_display: string;
@@ -399,16 +540,17 @@ export type BranchSalesReport = {
   total_revenue_display: string;
   average_ticket_minor: number;
   payment_breakdown: Record<string, number>;
-  created_at: string;
+  notes: string | null;
 };
 
 export type BranchDashboardSummary = {
   id: string;
+  branch_id: string;
   summary_date: string;
   total_revenue_minor: number;
   total_revenue_display: string;
   total_orders: number;
-  average_rating?: number | null;
+  average_rating: number | null;
   low_stock_count: number;
   active_tables: number;
 };
@@ -429,14 +571,16 @@ export type OwnerDashboardSummary = {
 
 export type Employee = {
   id: string;
-  membership_id: string;
-  role: string;
   name: string;
   email: string;
-  phone?: string;
+  phone: string | null;
+  role: string;
+  hire_date: string;
   is_active: boolean;
-  hired_at: string;
-  branch_id?: string;
+  branch_id: string | null;
+  user_id: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Shift = {
@@ -447,7 +591,8 @@ export type Shift = {
   start_time: string;
   end_time: string;
   status: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "NO_SHOW";
-  notes?: string;
+  notes: string | null;
+  created_at: string;
 };
 
 export type ShiftAssignment = {
@@ -471,8 +616,8 @@ export type LoyaltyAccount = {
   total_redeemed: number;
   lifetime_spend_minor: number;
   tier: "STANDARD" | "SILVER" | "GOLD" | "PLATINUM";
-  last_earned_at?: string;
-  last_redeemed_at?: string;
+  last_earned_at: string | null;
+  last_redeemed_at: string | null;
 };
 
 export type LoyaltyTransaction = {
@@ -481,7 +626,7 @@ export type LoyaltyTransaction = {
   type: "EARN" | "REDEEM";
   points: number;
   reason: string;
-  reference_id: string; // order_id or coupon_id
+  reference_id: string | null; // order_id or coupon_id
   created_at: string;
 };
 
@@ -517,15 +662,15 @@ export type CouponRedemption = {
 export type Review = {
   id: string;
   restaurant_id: string;
-  membership_id?: string; // null = anonymous
+  membership_id: string | null; // null = anonymous
   rating: number; // 1-5
-  title?: string;
-  content?: string;
-  images?: string[]; // image paths/URLs
+  title: string | null;
+  content: string | null;
+  images: string | null; // JSON string of image paths/URLs
   status: "PENDING" | "APPROVED" | "REJECTED";
   created_at: string;
-  responded_at?: string;
-  response_text?: string;
+  responded_at: string | null;
+  response_text: string | null;
 };
 
 export type ReviewResponse = {
@@ -537,7 +682,7 @@ export type ReviewResponse = {
 export type ReviewsSummary = {
   average_rating: number;
   total_reviews: number;
-  rating_distribution: { rating: number; count: number }[];
+  rating_distribution: Record<string, number>;
 };
 
 /* -------------------------------------------------------------------------
@@ -546,12 +691,13 @@ export type ReviewsSummary = {
 
 export type SubscriptionPlan = {
   id: string;
+  restaurant_id: string;
   name: string;
-  description?: string;
+  description: string | null;
   price_minor: number;
   billing_interval: "MONTHLY" | "QUARTERLY" | "ANNUAL";
   trial_days: number;
-  features: string[];
+  features: string; // JSON string
   is_active: boolean;
 };
 
@@ -563,7 +709,7 @@ export type Subscription = {
   started_at: string;
   billing_cycle_end: string;
   cancel_at_period_end: boolean;
-  canceled_at?: string;
+  canceled_at: string | null;
 };
 
 export type SubscriptionBillingInfo = {
@@ -650,7 +796,24 @@ export type SubscriptionApiPaths = {
 export function createApiClient(config: ApiClientConfig): ApiClient {
   const defaultTimeout = config.timeoutMs ?? 15_000;
 
-  async function request<T>(_path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const absoluteUrl = (path: string): string => {
+    const base = config.baseUrl.replace(/\/+$/, "");
+    const suffix = path.startsWith("/") ? path : `/${path}`;
+    return `${base}${suffix}`;
+  };
+
+  async function readProblem(response: Response): Promise<Problem> {
+    try {
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) return {};
+      const parsed: unknown = await response.json();
+      return parsed && typeof parsed === "object" ? (parsed as Problem) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  async function request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
     const headers: Record<string, string> = {
       Accept: "application/json",
       ...options.headers,
@@ -663,8 +826,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     if (token) headers.Authorization = `Bearer ${token}`;
     if (options.idempotencyKey) headers["Idempotency-Key"] = options.idempotencyKey;
 
-    const isBrowser = typeof document !== "undefined";
-    if (!isBrowser && (options.method ?? "GET").toUpperCase() === "GET") {
+    if (typeof document !== "undefined" && (options.method ?? "GET").toUpperCase() === "GET") {
       headers["Cache-Control"] = "no-cache";
     }
 
@@ -675,15 +837,51 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
       timedOut = true;
       controller.abort();
     }, timeoutMs);
-    const onCallerAbort = () => controller.abort();
+    let callerAborted = false;
+    const onCallerAbort = () => {
+      callerAborted = true;
+      controller.abort();
+    };
     options.signal?.addEventListener("abort", onCallerAbort);
+    if (options.signal?.aborted) onCallerAbort();
 
     try {
-      throw new Error("Platform-specific fetch required");
+      const response = await fetch(absoluteUrl(path), {
+        method: options.method ?? "GET",
+        headers,
+        body: options.body,
+        signal: controller.signal,
+      });
+
+      if (response.status === 401 && token) {
+        config.onUnauthorized?.();
+      }
+
+      if (!response.ok) {
+        const problem = await readProblem(response);
+        throw new ApiError(
+          response.status,
+          problem.code || `HTTP_${response.status}`,
+          problem.detail || problem.title || response.statusText || "Request failed."
+        );
+      }
+
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        return (await response.text()) as unknown as T;
+      }
+      return (await response.json()) as T;
     } catch (error) {
       if (error instanceof ApiError) throw error;
       if (timedOut) {
         throw new ApiTransportError("timeout", "The server did not respond in time.");
+      }
+      if (callerAborted) {
+        throw new ApiTransportError("aborted", "The request was cancelled.");
       }
       throw new ApiTransportError("offline", "Could not reach the server.");
     } finally {
@@ -700,11 +898,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
   return {
     request,
     authHeaders,
-    url: (path: string) => {
-      const base = config.baseUrl.replace(/\/+$/, "");
-      const suffix = path.startsWith("/") ? path : `/${path}`;
-      return `${base}${suffix}`;
-    },
+    url: absoluteUrl,
   };
 }
 
