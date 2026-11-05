@@ -40,6 +40,8 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     allowedHosts: [".monkeycode-ai.live"],
+    // The admin build writes to dist-admin inside this root; never watch it.
+    watch: { ignored: ["**/dist-admin/**"] },
     // The shared client lives outside apps/web.
     fs: { allow: [repoRoot] },
     proxy: {
