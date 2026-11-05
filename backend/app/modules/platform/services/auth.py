@@ -121,12 +121,12 @@ def _encode_ticket(*, admin: PlatformAdmin, purpose: str, minutes: int) -> str:
         "exp": now + timedelta(minutes=minutes),
         "iat": now,
     }
-    return jwt.encode(payload, settings.platform_secret_key, algorithm="HS256")
+    return jwt.encode(payload, settings.platform_signing_key, algorithm="HS256")
 
 
 def _decode_ticket(ticket: str, *, purpose: str) -> PlatformAdmin:
     try:
-        payload = jwt.decode(ticket, settings.platform_secret_key, algorithms=["HS256"])
+        payload = jwt.decode(ticket, settings.platform_signing_key, algorithms=["HS256"])
     except jwt.ExpiredSignatureError as exc:
         raise AppError(401, "TICKET_EXPIRED", "Unauthorized", "Sign in again.") from exc
     except jwt.InvalidTokenError as exc:
@@ -278,6 +278,98 @@ def start_enrollment(
 
     uri = provisioning_uri(secret, email=admin.email, issuer=settings.platform_totp_issuer)
     return secret, uri
+
+
+def start_enrollment_for_admin(
+    db: Session,
+    *,
+    admin_id: UUID,
+    request=None,
+) -> tuple[str, str]:
+    """Start MFA enrollment for an already-authenticated admin (settings flow)."""
+    admin = db.get(PlatformAdmin, admin_id)
+    if admin is None or admin.status != "ACTIVE":
+        raise AppError(404, "PLATFORM_USER_NOT_FOUND", "Not found", "Administrator not found.")
+    if admin.mfa_enabled_at is not None:
+        raise AppError(
+            409,
+            "MFA_ALREADY_ENABLED",
+            "Conflict",
+            "Multi-factor authentication is already enabled.",
+        )
+
+    secret = generate_totp_secret()
+    admin.mfa_secret_encrypted = encrypt_secret(secret)
+    db.commit()
+
+    uri = provisioning_uri(secret, email=admin.email, issuer=settings.platform_totp_issuer)
+    return secret, uri
+
+
+def verify_enrollment_for_admin(
+    db: Session,
+    *,
+    admin_id: UUID,
+    code: str,
+    request=None,
+) -> VerifiedMfa:
+    """Complete MFA enrollment for an already-authenticated admin (settings flow)."""
+    admin = db.get(PlatformAdmin, admin_id)
+    if admin is None or admin.status != "ACTIVE":
+        raise AppError(404, "PLATFORM_USER_NOT_FOUND", "Not found", "Administrator not found.")
+    if admin.mfa_enabled_at is not None:
+        raise AppError(409, "MFA_ALREADY_ENABLED", "Conflict", "MFA is already enabled.")
+    if not admin.mfa_secret_encrypted:
+        raise AppError(
+            409,
+            "MFA_NOT_STARTED",
+            "Conflict",
+            "Start MFA enrollment first.",
+        )
+
+    secret = decrypt_secret(admin.mfa_secret_encrypted)
+    if not verify_totp(secret, code):
+        write_platform_audit(
+            db,
+            action=_ACTION_MFA_FAILED,
+            entity_type="platform_admin",
+            entity_id=str(admin.id),
+            actor_admin_id=admin.id,
+            actor_email=admin.email,
+            reason="enrollment code rejected",
+            request=request,
+        )
+        db.commit()
+        raise AppError(401, "MFA_INVALID", "Unauthorized", "The code is incorrect.")
+
+    recovery_codes = generate_recovery_codes(settings.platform_recovery_code_count)
+    now = _now()
+    admin.mfa_recovery_codes_hash = hash_recovery_codes(recovery_codes)
+    admin.mfa_enabled_at = now
+
+    session = _create_session(db, admin=admin, request=request)
+    write_platform_audit(
+        db,
+        action=_ACTION_MFA_ENROLLED,
+        entity_type="platform_admin",
+        entity_id=str(admin.id),
+        actor_admin_id=admin.id,
+        actor_email=admin.email,
+        reason="mfa enrolled",
+        request=request,
+    )
+    write_platform_audit(
+        db,
+        action=_ACTION_LOGIN_SUCCESS,
+        entity_type="platform_admin",
+        entity_id=str(admin.id),
+        actor_admin_id=admin.id,
+        actor_email=admin.email,
+        reason="mfa enrollment completed",
+        request=request,
+    )
+    db.commit()
+    return VerifiedMfa(session=session, recovery_codes=recovery_codes)
 
 
 def _create_session(

@@ -35,6 +35,18 @@ CSRF_EXEMPT_PATHS = frozenset(
     }
 )
 
+# Token-bearing public routes cannot present a CSRF cookie before the target
+# account exists. They are single-use, hashed-at-rest tokens and still pass the
+# Origin check below.
+CSRF_EXEMPT_PREFIXES = (
+    "/api/platform/auth/invitations/",
+    "/api/platform/auth/password-reset/",
+)
+
+
+def _is_csrf_exempt(path: str) -> bool:
+    return path in CSRF_EXEMPT_PATHS or path.startswith(CSRF_EXEMPT_PREFIXES)
+
 
 def _normalize(origin: str) -> str:
     return origin.strip().rstrip("/")
@@ -53,9 +65,13 @@ def request_origin(request: Request) -> str | None:
 
 
 def validate_origin(request: Request) -> None:
-    allowed = _normalize(settings.platform_admin_origin)
+    allowed = settings.platform_admin_origin_list
     origin = request_origin(request)
-    if not allowed or origin is None or not hmac.compare_digest(origin, allowed):
+    if (
+        not allowed
+        or origin is None
+        or not any(hmac.compare_digest(origin, candidate) for candidate in allowed)
+    ):
         raise AppError(
             403,
             "ORIGIN_INVALID",
@@ -82,6 +98,6 @@ def platform_request_guard(request: Request) -> None:
         return
 
     validate_origin(request)
-    if request.url.path in CSRF_EXEMPT_PATHS:
+    if _is_csrf_exempt(request.url.path):
         return
     validate_csrf(request)

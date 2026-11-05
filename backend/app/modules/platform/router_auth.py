@@ -6,15 +6,24 @@ only ever delivered as cookies.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.security import hash_password, hash_token, validate_password_policy
 from app.db.session import get_db
 from app.modules.platform.constants import PLATFORM_REFRESH_COOKIE
 from app.modules.platform.deps import PlatformActor, get_platform_admin
+from app.modules.platform.models import (
+    PlatformAdmin,
+    PlatformOneTimeToken,
+    PlatformRefreshToken,
+)
 from app.modules.platform.schemas import (
     AuthSuccessOut,
     LoginChallengeOut,
@@ -28,7 +37,10 @@ from app.modules.platform.schemas import (
     StepUpOut,
     StepUpRequest,
 )
+from app.modules.platform.schemas_admin import InviteAcceptRequest
 from app.modules.platform.services import auth
+from app.modules.platform.services.audit import write_platform_audit
+from app.modules.tenancy.services import platform_directory
 from app.modules.platform.services.cookies import (
     clear_auth_cookies,
     set_access_cookie,
@@ -89,6 +101,63 @@ def verify_mfa_enrollment(
     return AuthSuccessOut(
         admin=result.session.admin,
         expires_in=result.session.expires_in,
+        recovery_codes=result.recovery_codes,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Session-based MFA enrollment (settings flow — no login challenge ticket)
+# ---------------------------------------------------------------------------
+
+
+class MfaEnrollSessionStartOut(BaseModel):
+    secret: str
+    provisioning_uri: str
+    issuer: str
+
+
+class MfaEnrollSessionVerifyRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=32)
+
+
+class MfaEnrollSessionVerifyOut(BaseModel):
+    ok: bool
+    recovery_codes: list[str] | None = None
+
+
+@router.post("/mfa/enroll/start-session", response_model=MfaEnrollSessionStartOut)
+def start_mfa_enrollment_session(
+    request: Request,
+    actor: PlatformActor = Depends(get_platform_admin),
+    db: Session = Depends(get_db),
+) -> MfaEnrollSessionStartOut:
+    """Start MFA enrollment for the currently authenticated admin (settings flow)."""
+    secret, uri = auth.start_enrollment_for_admin(db, admin_id=actor.admin_id, request=request)
+    return MfaEnrollSessionStartOut(
+        secret=secret,
+        provisioning_uri=uri,
+        issuer=settings.platform_totp_issuer,
+    )
+
+
+@router.post("/mfa/enroll/verify-session", response_model=MfaEnrollSessionVerifyOut)
+def verify_mfa_enrollment_session(
+    payload: MfaEnrollSessionVerifyRequest,
+    request: Request,
+    response: Response,
+    actor: PlatformActor = Depends(get_platform_admin),
+    db: Session = Depends(get_db),
+) -> MfaEnrollSessionVerifyOut:
+    """Complete MFA enrollment for the currently authenticated admin (settings flow)."""
+    result = auth.verify_enrollment_for_admin(
+        db,
+        admin_id=actor.admin_id,
+        code=payload.code,
+        request=request,
+    )
+    set_auth_cookies(response, result.session)
+    return MfaEnrollSessionVerifyOut(
+        ok=True,
         recovery_codes=result.recovery_codes,
     )
 
@@ -216,3 +285,138 @@ def revoke_all_sessions(
 ) -> dict:
     count = auth.revoke_all_sessions(db, admin_id=actor.admin_id, request=request)
     return {"revoked_sessions": count}
+
+
+# ---------------------------------------------------------------------------
+# Public one-time-token flows (invitations and password resets)
+# ---------------------------------------------------------------------------
+
+
+def _consume_token(
+    db: Session, token: str, purposes: tuple[str, ...]
+) -> PlatformOneTimeToken:
+    row = db.scalar(
+        select(PlatformOneTimeToken).where(
+            PlatformOneTimeToken.token_hash == hash_token(token),
+            PlatformOneTimeToken.purpose.in_(purposes),
+            PlatformOneTimeToken.used_at.is_(None),
+            PlatformOneTimeToken.expires_at > datetime.now(UTC),
+        )
+    )
+    if row is None:
+        # Never reveal whether the token existed, expired, or was used.
+        raise AppError(404, "INVITATION_NOT_FOUND", "Not found", "This link is no longer valid.")
+    return row
+
+
+@router.get("/invitations/{token}")
+def invitation_details(token: str, db: Session = Depends(get_db)) -> dict:
+    row = _consume_token(db, token, ("OWNER_INVITE", "ADMIN_INVITE"))
+    tenant_name = None
+    if row.restaurant_id:
+        tenant = platform_directory.get_tenant(db, row.restaurant_id)
+        tenant_name = tenant["name"] if tenant else None
+    return {
+        "email": row.email,
+        "purpose": row.purpose,
+        "tenant_name": tenant_name,
+        "expires_at": row.expires_at,
+    }
+
+
+@router.post("/invitations/{token}/accept")
+def accept_invitation(
+    token: str,
+    payload: InviteAcceptRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict:
+    row = _consume_token(db, token, ("OWNER_INVITE", "ADMIN_INVITE"))
+    valid, errors = validate_password_policy(payload.password)
+    if not valid:
+        raise AppError(422, "PASSWORD_POLICY", "Invalid input", "; ".join(errors))
+
+    password_hash = hash_password(payload.password)
+    now = datetime.now(UTC)
+    if row.purpose == "OWNER_INVITE":
+        if row.restaurant_id is None:
+            raise AppError(404, "INVITATION_NOT_FOUND", "Not found", "This link is no longer valid.")
+        platform_directory.accept_owner_invitation(
+            db,
+            email=row.email,
+            restaurant_id=row.restaurant_id,
+            display_name=payload.display_name,
+            password_hash=password_hash,
+        )
+        action = "OWNER_INVITE_ACCEPTED"
+    else:
+        admin = db.get(PlatformAdmin, row.platform_admin_id) if row.platform_admin_id else None
+        if admin is None:
+            raise AppError(404, "INVITATION_NOT_FOUND", "Not found", "This link is no longer valid.")
+        admin.password_hash = password_hash
+        admin.status = "ACTIVE"
+        admin.password_changed_at = now
+        admin.token_version += 1
+        db.execute(
+            update(PlatformRefreshToken)
+            .where(
+                PlatformRefreshToken.admin_id == admin.id,
+                PlatformRefreshToken.revoked_at.is_(None),
+            )
+            .values(revoked_at=now, revoked_reason="PASSWORD_CHANGED")
+        )
+        action = "PLATFORM_USER_INVITE_ACCEPTED"
+
+    row.used_at = now
+    write_platform_audit(
+        db,
+        action=action,
+        entity_type="platform_one_time_token",
+        entity_id=str(row.id),
+        actor_email=row.email,
+        restaurant_id=row.restaurant_id,
+        reason="invitation accepted",
+        request=request,
+    )
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/password-reset/{token}/accept")
+def accept_password_reset(
+    token: str,
+    payload: InviteAcceptRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict:
+    row = _consume_token(db, token, ("ADMIN_PASSWORD_RESET",))
+    valid, errors = validate_password_policy(payload.password)
+    if not valid:
+        raise AppError(422, "PASSWORD_POLICY", "Invalid input", "; ".join(errors))
+    admin = db.get(PlatformAdmin, row.platform_admin_id) if row.platform_admin_id else None
+    if admin is None:
+        raise AppError(404, "INVITATION_NOT_FOUND", "Not found", "This link is no longer valid.")
+    now = datetime.now(UTC)
+    admin.password_hash = hash_password(payload.password)
+    admin.password_changed_at = now
+    admin.token_version += 1
+    db.execute(
+        update(PlatformRefreshToken)
+        .where(
+            PlatformRefreshToken.admin_id == admin.id,
+            PlatformRefreshToken.revoked_at.is_(None),
+        )
+        .values(revoked_at=now, revoked_reason="PASSWORD_CHANGED")
+    )
+    row.used_at = now
+    write_platform_audit(
+        db,
+        action="PLATFORM_USER_PASSWORD_RESET_ACCEPTED",
+        entity_type="platform_admin",
+        entity_id=str(admin.id),
+        actor_email=admin.email,
+        reason="password reset accepted",
+        request=request,
+    )
+    db.commit()
+    return {"ok": True}

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -102,6 +102,111 @@ def bootstrap_platform(db: Session, settings: Settings) -> None:
         reason="initial bootstrap",
         after={"email": admin.email, "role": admin.role},
     )
+    db.commit()
+
+
+def seed_platform_billing_dev(db: Session) -> None:
+    """Seed the plan catalogue and one demo billing record. Dev/test only.
+
+    Idempotent: existing plans and a live subscription for the demo tenant are
+    left untouched. Never called in production (bootstrap_platform only ensures
+    settings defaults there).
+    """
+    from datetime import timedelta
+
+    from app.modules.platform.models import PlatformPlan, PlatformSubscription
+    from app.modules.platform.services.billing import create_invoice
+    from app.modules.platform.services.settings import ensure_defaults
+
+    ensure_defaults(db)
+
+    plans = [
+        ("starter", "Starter", "Single branch, QR ordering, core reporting.", 2_999_00, 0, 30),
+        ("growth", "Growth", "Multi-branch operations, staff roles, exports.", 5_999_00, 1, 25),
+        (
+            "professional",
+            "Professional",
+            "Advanced analytics, loyalty, priority support.",
+            9_999_00,
+            2,
+            20,
+        ),
+        ("enterprise", "Enterprise", "Custom limits, onboarding, and SLA.", 19_999_00, 3, 0),
+    ]
+    created_plans: dict[str, PlatformPlan] = {}
+    for code, name, description, price, order, trial_days in plans:
+        plan = db.scalar(select(PlatformPlan).where(PlatformPlan.code == code))
+        if plan is None:
+            plan = PlatformPlan(
+                code=code,
+                name=name,
+                description=description,
+                price_monthly_minor=price,
+                price_annual_minor=price * 10,
+                currency_code="NPR",
+                trial_days=trial_days,
+                entitlements={"branches": {"limit": order + 1}, "staff": {"limit": 25}},
+                status="ACTIVE",
+                is_public=True,
+                sort_order=order,
+            )
+            db.add(plan)
+            db.flush()
+        created_plans[code] = plan
+    db.commit()
+
+    restaurant = db.execute(
+        text("SELECT id, name FROM restaurants WHERE slug = :slug"),
+        {"slug": "harbor-table"},
+    ).mappings().first()
+    if restaurant is None:
+        return
+    live = db.scalar(
+        select(PlatformSubscription).where(
+            PlatformSubscription.restaurant_id == restaurant["id"],
+            PlatformSubscription.status.in_(
+                ("TRIALING", "ACTIVE", "PAST_DUE", "GRACE", "SUSPENDED")
+            ),
+        )
+    )
+    if live is not None:
+        return
+
+    plan = created_plans["growth"]
+    now = datetime.now(UTC)
+    subscription = PlatformSubscription(
+        restaurant_id=restaurant["id"],
+        plan_id=plan.id,
+        status="ACTIVE",
+        trial_ends_at=None,
+        current_period_start=now - timedelta(days=5),
+        current_period_end=now + timedelta(days=25),
+        cancel_at_period_end=False,
+        price_snapshot_minor=plan.price_monthly_minor,
+        currency_snapshot=plan.currency_code,
+        billing_interval_snapshot="MONTHLY",
+    )
+    db.add(subscription)
+    db.flush()
+    invoice = create_invoice(
+        db,
+        tenant={"id": restaurant["id"], "name": restaurant["name"], "legal_name": None},
+        subscription=subscription,
+        lines=[
+            {
+                "kind": "PLAN",
+                "description": f"{plan.name} plan — monthly",
+                "quantity": 1,
+                "unit_amount_minor": plan.price_monthly_minor,
+            }
+        ],
+        due_at=now + timedelta(days=10),
+        currency_code=plan.currency_code,
+        notes="Demo invoice seeded in development only.",
+        discount_minor=0,
+        admin_id=None,
+    )
+    invoice.status = "OPEN"
     db.commit()
 
 

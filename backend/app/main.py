@@ -14,7 +14,11 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
-from app.modules.platform.services.bootstrap import bootstrap_platform, seed_platform_dev
+from app.modules.platform.services.bootstrap import (
+    bootstrap_platform,
+    seed_platform_billing_dev,
+    seed_platform_dev,
+)
 from app.seed import bootstrap_production, seed_if_empty
 from app.shared.errors import AppError, app_error_handler, http_error_handler, problem_body
 
@@ -147,6 +151,9 @@ def on_startup() -> None:
         db = _SessionLocal()
         try:
             bootstrap_platform(db, settings)
+            from app.modules.platform.services.settings import ensure_defaults
+
+            ensure_defaults(db)
             bootstrap_production(db, settings)
         finally:
             db.close()
@@ -157,5 +164,6 @@ def on_startup() -> None:
         try:
             seed_if_empty(db)
             seed_platform_dev(db, settings)
+            seed_platform_billing_dev(db)
         finally:
             db.close()

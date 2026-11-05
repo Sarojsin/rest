@@ -175,7 +175,7 @@ def create_platform_access_token(
     ``mid``/``rid``: tenant scope is always an explicit target ID on the
     request, never ambient in the token.
     """
-    if not settings.platform_secret_key:
+    if not settings.platform_signing_key:
         raise RuntimeError("PLATFORM_SECRET_KEY is not configured")
 
     now = datetime.now(UTC)
@@ -190,15 +190,15 @@ def create_platform_access_token(
         "exp": now + timedelta(minutes=settings.platform_access_token_minutes),
         "iat": now,
     }
-    return jwt.encode(payload, settings.platform_secret_key, algorithm="HS256")
+    return jwt.encode(payload, settings.platform_signing_key, algorithm="HS256")
 
 
 def decode_platform_access_token(token: str) -> dict:
-    if not settings.platform_secret_key:
+    if not settings.platform_signing_key:
         raise RuntimeError("PLATFORM_SECRET_KEY is not configured")
 
     try:
-        payload = jwt.decode(token, settings.platform_secret_key, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.platform_signing_key, algorithms=["HS256"])
     except jwt.ExpiredSignatureError as exc:
         raise AppError(
             401, "TOKEN_EXPIRED", "Unauthorized", "Session expired. Sign in again."
