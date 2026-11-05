@@ -16,7 +16,7 @@ from app.core.config import settings
 
 
 def _fernet(key: str | None = None) -> Fernet:
-    material = key if key is not None else settings.platform_mfa_key
+    material = key if key is not None else settings.platform_mfa_material
     if not material:
         raise RuntimeError("PLATFORM_MFA_KEY is not configured")
     derived = base64.urlsafe_b64encode(hashlib.sha256(material.encode("utf-8")).digest())
