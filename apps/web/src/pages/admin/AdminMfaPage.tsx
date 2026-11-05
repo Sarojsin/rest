@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import QRCode from "qrcode";
 import type { MfaEnrollment } from "../../lib/platformApi";
 import { describePlatformError, usePlatformAuth } from "../../lib/platformAuth";
 
@@ -10,10 +11,12 @@ import { describePlatformError, usePlatformAuth } from "../../lib/platformAuth";
 export default function AdminMfaPage() {
   const { challenge, verifyMfa, startEnrollment, verifyEnrollment, clearChallenge } =
     usePlatformAuth();
+
   const navigate = useNavigate();
 
   const [code, setCode] = useState("");
   const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -22,6 +25,15 @@ export default function AdminMfaPage() {
   if (!challenge) return <Navigate to="/login" replace />;
 
   const enrolling = challenge.enrollment_required;
+
+  // Generate QR code image from the provisioning URI when enrollment starts
+  useEffect(() => {
+    if (enrollment?.provisioning_uri) {
+      QRCode.toDataURL(enrollment.provisioning_uri, { width: 260 }, (_err, url) => {
+        if (url) setQrDataUrl(url);
+      });
+    }
+  }, [enrollment]);
 
   async function beginEnrollment() {
     setError(null);
@@ -94,7 +106,10 @@ export default function AdminMfaPage() {
             <button
               type="button"
               className="pf-button"
-              onClick={() => navigate("/", { replace: true })}
+              onClick={() => {
+                clearChallenge();
+                navigate("/", { replace: true });
+              }}
             >
               I have saved them — continue
             </button>
@@ -130,10 +145,26 @@ export default function AdminMfaPage() {
             {enrolling && enrollment ? (
               <div style={{ marginBottom: 16 }}>
                 <p className="pf-muted" style={{ marginTop: 0 }}>
-                  Add this secret to your authenticator app, then enter the current code.
+                  Scan this QR code with your authenticator app, or enter the secret manually.
                 </p>
-                <code className="pf-code">{enrollment.secret}</code>
-                <p className="pf-muted pf-mono" style={{ fontSize: 12 }}>
+                {qrDataUrl ? (
+                  <img
+                    src={qrDataUrl}
+                    alt="Authenticator QR code"
+                    style={{ display: "block", margin: "0 auto 12px", width: 200, height: 200 }}
+                  />
+                ) : (
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: "#5b6678" }}>Generating QR…</span>
+                  </div>
+                )}
+                <div style={{ marginBottom: 8 }}>
+                  <label style={{ display: "block", marginBottom: 4, fontSize: 11, color: "#5b6678" }}>
+                    Or enter secret manually:
+                  </label>
+                  <code className="pf-code">{enrollment.secret}</code>
+                </div>
+                <p className="pf-muted pf-mono" style={{ fontSize: 11, marginTop: 4 }}>
                   {enrollment.provisioning_uri}
                 </p>
               </div>

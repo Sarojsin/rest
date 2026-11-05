@@ -4,11 +4,11 @@ import { describePlatformError, usePlatformAuth } from "../../lib/platformAuth";
 
 export default function AdminLoginPage() {
   const { admin, login } = usePlatformAuth();
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
 
   if (admin) return <Navigate to="/" replace />;
 

@@ -154,8 +154,9 @@ export function PlatformAuthProvider({ children }: { children: React.ReactNode }
           body: { ticket: challenge.ticket, code },
         }
       );
-      setChallenge(null);
       await loadMe();
+      // Keep the challenge until the operator has saved the one-time recovery
+      // codes; clearing it here would unmount the page and lose them.
       return result.recovery_codes ?? null;
     },
     [challenge, loadMe]
