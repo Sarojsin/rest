@@ -13,6 +13,7 @@ from app.api.platform.router_billing import router as platform_billing_router
 from app.api.platform.router_dashboard import router as platform_dashboard_router
 from app.api.platform.router_plans import router as platform_plans_router
 from app.api.platform.router_platform_users import router as platform_users_router
+from app.api.platform.router_self_service import router as platform_self_service_router
 from app.api.platform.router_settings import router as platform_settings_router
 from app.api.platform.router_subscriptions import router as platform_subscriptions_router
 from app.api.platform.router_tenants import router as platform_tenants_router
@@ -27,5 +28,6 @@ platform_router.include_router(platform_plans_router)
 platform_router.include_router(platform_subscriptions_router)
 platform_router.include_router(platform_billing_router)
 platform_router.include_router(platform_users_router)
+platform_router.include_router(platform_self_service_router)
 platform_router.include_router(platform_audit_router)
 platform_router.include_router(platform_settings_router)

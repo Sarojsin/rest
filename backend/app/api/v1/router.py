@@ -8,6 +8,7 @@ platform realm arrives in Phase 5.
 from fastapi import APIRouter
 
 from app.api.qr.router import router as qr_router
+from app.api.v1.router_memberships import router as memberships_router
 from app.modules.billing.router import router as billing_router
 from app.modules.branches.router import router as branches_router
 from app.modules.catalog.router import router as catalog_router
@@ -26,6 +27,7 @@ from app.modules.tenancy.router import router as tenancy_router
 
 api_router = APIRouter()
 api_router.include_router(identity_router)
+api_router.include_router(memberships_router)
 api_router.include_router(qr_router)
 api_router.include_router(tenancy_router)
 api_router.include_router(operations_router)

@@ -17,14 +17,19 @@ from app.modules.platform.deps import (
 )
 from app.modules.platform.models import (
     PlatformPlan,
+    PlatformPlanLimit,
+    PlatformPlanVersion,
     PlatformSubscription,
+    PlatformSubscriptionChangeHistory,
     PlatformSubscriptionEvent,
+    PlatformTenantUsage,
 )
 from app.modules.platform.permissions import SUPERADMIN
 from app.modules.platform.schemas_admin import (
     CancelSubscriptionRequest,
     ExtendTrialRequest,
     ReasonRequest,
+    SubscriptionChangeRequest,
     SubscriptionCreateRequest,
     SubscriptionUpdateRequest,
 )
@@ -38,10 +43,13 @@ from app.modules.platform.services.billing import (
 from app.modules.platform.services.common import (
     page_params,
     paginated,
+    require_confirm,
     require_reason,
     now_utc,
 )
 from app.modules.platform.services.settings import get_setting
+from app.modules.platform.services.entitlements import get_effective_entitlements
+from app.modules.platform.services.plan_versions import get_active_plan_version
 from app.shared.errors import AppError
 
 router = APIRouter(tags=["platform-subscriptions"])
@@ -409,6 +417,192 @@ def cancel_subscription(
     return serialize_subscription(db, row)
 
 
+@router.post("/tenants/{tenant_id}/subscription/change")
+def change_subscription_plan(
+    tenant_id: UUID,
+    payload: SubscriptionChangeRequest,
+    request: Request,
+    actor: PlatformActor = Depends(require_platform_permission("subscription.manage")),
+    _: PlatformActor = Depends(require_platform_step_up),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Change a tenant's subscription plan (upgrade or downgrade).
+
+    Downgrades are guarded by usage-vs-limit checks: if current usage
+    exceeds the new plan's limits, the request is rejected with a list
+    of violations. No resources are silently deleted.
+    """
+    # Validate tenant exists and get slug for confirm check
+    tenant = platform_directory.require_tenant(db, tenant_id)
+    require_confirm(payload.confirm, tenant["slug"])
+    reason = require_reason(payload.reason)
+
+    # Get current subscription
+    current_sub = _live_for_tenant(db, tenant_id)
+    if current_sub is None:
+        raise AppError(
+            404,
+            "NO_ACTIVE_SUBSCRIPTION",
+            "Not found",
+            "Tenant has no active subscription.",
+        )
+
+    # Get new plan
+    new_plan = _plan_by_code(db, payload.new_plan_code)
+    if new_plan.id == current_sub.plan_id:
+        raise AppError(
+            409,
+            "SAME_PLAN",
+            "Conflict",
+            "Already subscribed to this plan.",
+        )
+
+    # Get active plan version for new plan
+    new_version = get_active_plan_version(db, new_plan.id)
+    if new_version is None:
+        raise AppError(
+            409,
+            "PLAN_VERSION_NOT_ACTIVE",
+            "Conflict",
+            "No active plan version found for the new plan.",
+        )
+
+    # Get old plan code before changing
+    old_plan = db.get(PlatformPlan, current_sub.plan_id)
+    old_plan_code = old_plan.code if old_plan else None
+
+    # Determine if upgrade or downgrade
+    is_downgrade = new_version.price_monthly_minor < current_sub.price_snapshot_minor
+
+    # For downgrade, check usage vs new plan limits
+    if is_downgrade:
+        new_limits = db.scalars(
+            select(PlatformPlanLimit).where(
+                PlatformPlanLimit.plan_version_id == new_version.id
+            )
+        ).all()
+        limit_map = {l.limit_key: l.limit_value for l in new_limits}
+
+        # Get current usage from the cached counter table
+        usage_row = db.scalar(
+            select(PlatformTenantUsage).where(
+                PlatformTenantUsage.restaurant_id == tenant_id
+            )
+        )
+
+        counter_map = {
+            "branches": "branch_count",
+            "owners": "owner_count",
+            "managers": "manager_count",
+            "waiters": "waiter_count",
+            "kitchen": "kitchen_count",
+            "cashier": "cashier_count",
+            "tables": "table_count",
+        }
+
+        violations = []
+        if usage_row is not None:
+            for limit_key, limit_value in limit_map.items():
+                counter_attr = counter_map.get(limit_key)
+                if counter_attr is None:
+                    continue
+                current = getattr(usage_row, counter_attr, 0) or 0
+                if current > limit_value:
+                    violations.append(
+                        {
+                            "resource": limit_key,
+                            "current": current,
+                            "limit": limit_value,
+                            "excess": current - limit_value,
+                        }
+                    )
+
+        if violations:
+            raise AppError(
+                409,
+                "DOWNGRADE_LIMIT_EXCEEDED",
+                "Conflict",
+                "Current usage exceeds new plan limits.",
+                extra={"violations": violations},
+            )
+
+    # Calculate prorated amount for remaining days in current period
+    now = now_utc()
+    days_remaining = max(0, (current_sub.current_period_end - now).days)
+    old_daily_rate = current_sub.price_snapshot_minor / 30.0
+    new_daily_rate = new_version.price_monthly_minor / 30.0
+    prorated_amount = int(round((new_daily_rate - old_daily_rate) * days_remaining))
+
+    # Record change history
+    change_record = PlatformSubscriptionChangeHistory(
+        restaurant_id=tenant_id,
+        from_plan_version_id=current_sub.plan_version_id,
+        to_plan_version_id=new_version.id,
+        changed_by_admin_id=actor.admin_id,
+        reason=reason,
+        prorated_amount_minor=prorated_amount,
+    )
+    db.add(change_record)
+
+    # Update subscription
+    from_status = current_sub.status
+    current_sub.plan_id = new_plan.id
+    current_sub.plan_version_id = new_version.id
+    current_sub.price_snapshot_minor = new_version.price_monthly_minor
+    current_sub.currency_snapshot = new_version.currency_code
+    current_sub.billing_interval_snapshot = "MONTHLY"
+    current_sub.updated_at = now
+
+    # Add subscription event
+    event_type = "PLAN_UPGRADED" if not is_downgrade else "PLAN_DOWNGRADED"
+    add_subscription_event(
+        db,
+        current_sub,
+        event_type=event_type,
+        admin_id=actor.admin_id,
+        reason=reason,
+        from_status=from_status,
+        to_status=current_sub.status,
+        metadata={
+            "from_plan_code": old_plan_code,
+            "to_plan_code": new_plan.code,
+            "prorated_amount_minor": prorated_amount,
+        },
+    )
+
+    write_platform_audit(
+        db,
+        action="SUBSCRIPTION_PLAN_CHANGED",
+        entity_type="platform_subscription",
+        entity_id=str(current_sub.id),
+        actor_admin_id=actor.admin_id,
+        actor_email=actor.email,
+        restaurant_id=tenant_id,
+        reason=reason,
+        request=request,
+        before={"plan_code": old_plan_code},
+        after={
+            "plan_code": new_plan.code,
+            "prorated_amount_minor": prorated_amount,
+        },
+    )
+
+    db.commit()
+
+    return {
+        "subscription": serialize_subscription(db, current_sub),
+        "change": {
+            "from_plan_version_id": (
+                str(current_sub.plan_version_id) if current_sub.plan_version_id else None
+            ),
+            "to_plan_version_id": str(new_version.id),
+            "prorated_amount_minor": prorated_amount,
+            "is_downgrade": is_downgrade,
+        },
+        "audit_id": None,
+    }
+
+
 @router.post("/subscriptions/{subscription_id}/reactivate")
 def reactivate_subscription(
     subscription_id: UUID,
@@ -496,3 +690,144 @@ def subscription_events(
         page,
         page_size,
     )
+
+
+# ---------------------------------------------------------------------------
+# Trial lifecycle endpoints (Plan 03)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/subscriptions/{subscription_id}/expire-trial")
+def expire_trial(
+    subscription_id: UUID,
+    payload: ExpireTrialRequest,
+    request: Request,
+    actor: PlatformActor = Depends(
+        require_platform_permission("subscription.manage")
+    ),
+    _: PlatformActor = Depends(require_platform_step_up),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Manually expire a trial subscription (superadmin/ops action)."""
+    from app.modules.platform.services.trial import expire_trial_manually
+
+    row = _get(db, subscription_id)
+    if row.status != "TRIALING":
+        raise AppError(
+            409,
+            "INVALID_STATUS_TRANSITION",
+            "Conflict",
+            "Only a trialing subscription can be expired.",
+        )
+
+    expire_trial_manually(
+        db,
+        subscription=row,
+        actor_admin_id=actor.admin_id,
+        reason=payload.reason,
+        request=request,
+    )
+    return {"ok": True, "subscription_id": str(subscription_id), "status": "EXPIRED"}
+
+
+@router.get("/subscriptions/{subscription_id}/trial-status")
+def get_trial_status(
+    subscription_id: UUID,
+    actor: PlatformActor = Depends(
+        require_platform_permission("subscription.view")
+    ),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get trial status for a subscription."""
+    from app.modules.platform.services.trial import get_trial_status
+
+    row = _get(db, subscription_id)
+    if row.status != "TRIALING":
+        raise AppError(
+            409,
+            "INVALID_STATUS_TRANSITION",
+            "Conflict",
+            "Only a trialing subscription has trial status.",
+        )
+
+    status = get_trial_status(db, restaurant_id=row.restaurant_id)
+    if status is None:
+        raise AppError(
+            404,
+            "TRIAL_NOT_FOUND",
+            "Not found",
+            "No active trial found for this subscription.",
+        )
+    return status
+
+
+@router.post("/trials/expire-expired")
+def expire_expired_trials(
+    request: Request,
+    actor: PlatformActor = Depends(
+        require_platform_permission("subscription.manage")
+    ),
+    _: PlatformActor = Depends(require_platform_step_up),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Expire all trials that have passed their trial_ends_at.
+
+    Typically called by a cron job.
+    """
+    from app.modules.platform.services.trial import expire_expired_trials
+
+    count = expire_expired_trials(db)
+    return TrialExpirationOut(expired_count=count, expired_subscriptions=[]).model_dump()
+
+
+@router.get("/trials/expiring")
+def get_expiring_trials(
+    days_ahead: int = Query(default=3, ge=1, le=30),
+    actor: PlatformActor = Depends(
+        require_platform_permission("subscription.view")
+    ),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get trials expiring within the given number of days.
+
+    Used for sending expiration notifications to owners.
+    """
+    from app.modules.platform.services.trial import get_trial_expirations
+
+    trials = get_trial_expirations(db, days_ahead=days_ahead)
+    return TrialExpiringOut(expiring_count=len(trials), trials=trials).model_dump()
+
+
+@router.post("/subscriptions/{subscription_id}/extend-trial")
+def extend_trial_endpoint(
+    subscription_id: UUID,
+    payload: ExtendTrialRequest,
+    request: Request,
+    actor: PlatformActor = Depends(
+        require_platform_permission("subscription.manage")
+    ),
+    _: PlatformActor = Depends(require_platform_step_up),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Extend a trial subscription with limit enforcement."""
+    from app.modules.platform.services.trial import extend_trial
+
+    row = _get(db, subscription_id)
+    if row.status != "TRIALING":
+        raise AppError(
+            409,
+            "INVALID_STATUS_TRANSITION",
+            "Conflict",
+            "Only a trial can be extended.",
+        )
+
+    extend_trial(
+        db,
+        subscription=row,
+        days=payload.days,
+        actor_admin_id=actor.admin_id,
+        reason=payload.reason,
+        request=request,
+    )
+    return serialize_subscription(db, row)
+

@@ -9,8 +9,13 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.modules.identity.models import User
+from app.modules.platform.services.entitlements import (
+    consume_limit,
+    get_effective_entitlements,
+    release_limit,
+)
 from app.modules.tenancy.middleware import tenant_context
-from app.modules.tenancy.models import RestaurantMembership
+from app.modules.tenancy.models import RestaurantMembership, RestaurantMembershipBranch
 from app.modules.tenancy.permissions import ROLE_PERMISSIONS
 from app.modules.tenancy.services.tenant_lifecycle import ensure_tenant_active
 from app.shared.errors import AppError
@@ -134,6 +139,190 @@ def require_permission_on_active_tenant(permission: str) -> Callable[[Actor], Ac
         actor: Actor = Depends(require_permission(permission)),
     ) -> Actor:
         ensure_tenant_active(actor.membership.restaurant)
+        return actor
+
+    return dependency
+
+
+# ---------------------------------------------------------------------------
+# Tenant subscription entitlement gates (PA-02)
+# ---------------------------------------------------------------------------
+#
+# These helpers live in the API composition layer so the tenancy module never
+# imports the platform module (the only sanctioned cross-module edge is
+# ``platform -> tenancy : services.platform_directory``).
+#
+# Tenants without an active subscription are deliberately ungated: local dev,
+# demo datasets and pre-sales tenants keep working while a subscription is
+# provisioned. Once a subscription exists it is authoritative â€” including
+# TRIALING/PAST_DUE/GRACE statuses, so enforcement is consistent through the
+# dunning lifecycle.
+
+
+def _tenant_entitlements(db: Session, actor: Actor) -> dict | None:
+    return get_effective_entitlements(db, restaurant_id=actor.restaurant_id)
+
+
+def require_tenant_feature(feature_key: str) -> Callable[..., Actor]:
+    """Require a plan feature to be enabled for the actor's tenant."""
+
+    def dependency(
+        actor: Actor = Depends(require_active_tenant),
+        db: Session = Depends(get_db),
+    ) -> Actor:
+        entitlements = _tenant_entitlements(db, actor)
+        if entitlements is not None and not entitlements["features"].get(feature_key, False):
+            raise AppError(
+                403,
+                "FEATURE_NOT_ENABLED",
+                "Forbidden",
+                "This feature is not included in your current plan.",
+                extra={"feature_key": feature_key},
+            )
+        return actor
+
+    return dependency
+
+
+def consume_tenant_limit(limit_key: str, increment: int = 1) -> Callable[..., Actor]:
+    """Atomically consume one seat/resource slot for the actor's tenant.
+
+    No-op when the tenant has no active subscription, so demo tenants remain
+    usable. When a subscription exists the counter is locked (``FOR UPDATE``)
+    and the request fails with 409 instead of racing past the plan limit.
+    """
+
+    def dependency(
+        actor: Actor = Depends(require_active_tenant),
+        db: Session = Depends(get_db),
+    ) -> Actor:
+        entitlements = _tenant_entitlements(db, actor)
+        if entitlements is None:
+            return actor
+        if not consume_limit(
+            db,
+            restaurant_id=actor.restaurant_id,
+            limit_key=limit_key,
+            increment=increment,
+            reason="tenant endpoint consumption",
+        ):
+            raise AppError(
+                409,
+                "SEAT_LIMIT_REACHED",
+                "Conflict",
+                "Your plan's limit for this resource has been reached.",
+                extra={"limit_key": limit_key},
+            )
+        return actor
+
+    return dependency
+
+
+def release_tenant_limit(limit_key: str, decrement: int = 1) -> Callable[..., Actor]:
+    """Release seats when a tenant-owned resource is removed.
+
+    Floors the counter at zero so removing a resource created before usage
+    tracking (or after a manual reconciliation) can never fail the request.
+    """
+
+    def dependency(
+        actor: Actor = Depends(require_active_tenant),
+        db: Session = Depends(get_db),
+    ) -> Actor:
+        entitlements = _tenant_entitlements(db, actor)
+        if entitlements is not None:
+            release_limit(
+                db,
+                restaurant_id=actor.restaurant_id,
+                limit_key=limit_key,
+                decrement=decrement,
+                reason="tenant endpoint release",
+            )
+        return actor
+
+    return dependency
+
+
+def require_permission_and_feature(
+    permission: str, feature_key: str
+) -> Callable[..., Actor]:
+    """Permission check plus a plan-feature gate in one dependency."""
+
+    def dependency(
+        actor: Actor = Depends(require_permission(permission)),
+        db: Session = Depends(get_db),
+    ) -> Actor:
+        entitlements = _tenant_entitlements(db, actor)
+        if entitlements is not None and not entitlements["features"].get(feature_key, False):
+            raise AppError(
+                403,
+                "FEATURE_NOT_ENABLED",
+                "Forbidden",
+                "This feature is not included in your current plan.",
+                extra={"feature_key": feature_key},
+            )
+        return actor
+
+    return dependency
+
+
+def require_permission_and_consume_limit(
+    permission: str, limit_key: str, increment: int = 1
+) -> Callable[..., Actor]:
+    """Permission check plus atomic plan-limit consumption in one dependency."""
+
+    def dependency(
+        actor: Actor = Depends(require_permission(permission)),
+        db: Session = Depends(get_db),
+    ) -> Actor:
+        entitlements = _tenant_entitlements(db, actor)
+        if entitlements is None:
+            return actor
+        if not consume_limit(
+            db,
+            restaurant_id=actor.restaurant_id,
+            limit_key=limit_key,
+            increment=increment,
+            reason="tenant endpoint consumption",
+        ):
+            raise AppError(
+                409,
+                "SEAT_LIMIT_REACHED",
+                "Conflict",
+                "Your plan's limit for this resource has been reached.",
+                extra={"limit_key": limit_key},
+            )
+        return actor
+
+    return dependency
+
+def require_branch_access(branch_id: UUID) -> Callable[..., Actor]:
+    """Require that the actor has access to the given branch.
+
+    Owner memberships bypass branch scoping (organization-wide access).
+    Other roles must have a `restaurant_membership_branch` row linking
+    their membership to the branch.
+    """
+
+    def dependency(
+        actor: Actor = Depends(require_permission_on_active_tenant("staff.manage")),
+        db: Session = Depends(get_db),
+    ) -> Actor:
+        if actor.membership.role == "owner":
+            return actor
+        has_access = db.scalar(
+            select(RestaurantMembershipBranch).where(
+                RestaurantMembershipBranch.membership_id == actor.membership.id,
+                RestaurantMembershipBranch.branch_id == branch_id,
+            )
+        )
+        if has_access is None:
+            raise AppError(
+                403,
+                "BRANCH_ACCESS_DENIED",
+                "Forbidden",
+                "You do not have access to this branch.",
+            )
         return actor
 
     return dependency
