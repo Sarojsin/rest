@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -54,6 +55,56 @@ def sales_report(db: Session, restaurant_id: UUID) -> SalesReportOut:
         outstanding_minor=outstanding,
         top_items=top_items,
     )
+
+
+def advanced_report(
+    db: Session, restaurant_id: UUID, *, days: int = 30
+) -> dict:
+    """Composite report gated by the ``advanced_reports`` plan feature.
+
+    Returns the standard sales summary plus a daily bucketed series and a few
+    derived KPIs. Kept as a plain dict so the platform plan can evolve the
+    payload without another response-model migration.
+    """
+    days = max(1, min(days, 365))
+    since = datetime.now(UTC) - timedelta(days=days)
+
+    orders = (
+        db.scalars(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.restaurant_id == restaurant_id, Order.submitted_at >= since)
+        )
+        .unique()
+        .all()
+    )
+
+    daily: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"order_count": 0, "gross_sales_minor": 0}
+    )
+    for order in orders:
+        day = order.submitted_at.date().isoformat()
+        daily[day]["order_count"] += 1
+        if order.status in {OrderStatus.ACCEPTED, OrderStatus.COMPLETED}:
+            daily[day]["gross_sales_minor"] += sum(
+                item.unit_price_minor * item.quantity for item in order.items
+            )
+
+    sales = sales_report(db, restaurant_id)
+    accepted = sales.accepted_order_count
+    average_order_minor = (
+        round(sales.gross_sales_minor / accepted) if accepted else 0
+    )
+
+    return {
+        "window_days": days,
+        "currency_code": sales.currency_code,
+        "sales": sales.model_dump(),
+        "average_order_minor": average_order_minor,
+        "daily": [
+            {"date": day, **values} for day, values in sorted(daily.items())
+        ],
+    }
 
 
 def list_audit(db: Session, restaurant_id: UUID, limit: int = 50) -> list[AuditEventOut]:

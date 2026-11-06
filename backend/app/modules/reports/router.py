@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import Actor, require_permission
+from app.api.deps import Actor, require_permission, require_tenant_feature
 from app.db.session import get_db
 from app.modules.reports.schemas import AuditEventOut, SalesReportOut
 from app.modules.reports.services import reports as report_service
@@ -15,6 +15,16 @@ def sales(
     db: Session = Depends(get_db),
 ) -> SalesReportOut:
     return report_service.sales_report(db, actor.restaurant_id)
+
+
+@router.get("/reports/advanced")
+def advanced(
+    days: int = 30,
+    actor: Actor = Depends(require_permission("reports.read")),
+    _: Actor = Depends(require_tenant_feature("advanced_reports")),
+    db: Session = Depends(get_db),
+) -> dict:
+    return report_service.advanced_report(db, actor.restaurant_id, days=days)
 
 
 @router.get("/audit-events", response_model=list[AuditEventOut])

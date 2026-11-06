@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import Actor, get_actor, get_tenant_id, require_permission, set_tenant_context
@@ -148,4 +148,178 @@ def get_tenant(
         "slug": restaurant.slug,
         "currency_code": restaurant.currency_code,
         "qr_ordering_enabled": bool(settings.qr_ordering_enabled) if settings else True,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Onboarding status (Plan 11)
+# ---------------------------------------------------------------------------
+
+STAGE_ORDER = [
+    "registered",
+    "owner_invited",
+    "owner_activated",
+    "profile_complete",
+    "branches",
+    "tables_configured",
+    "menu_configured",
+    "staff_invited",
+    "payments_configured",
+    "operational",
+]
+
+STAGE_LABELS = {
+    "registered": "Registered",
+    "owner_invited": "Owner Invited",
+    "owner_activated": "Owner Activated",
+    "profile_complete": "Profile Complete",
+    "branches": "Branches",
+    "tables_configured": "Tables Configured",
+    "menu_configured": "Menu Configured",
+    "staff_invited": "Staff Invited",
+    "payments_configured": "Payments Configured",
+    "operational": "Operational",
+}
+
+STAGE_STEPS = [
+    {"key": "registered", "label": "Accept invitation"},
+    {"key": "owner_invited", "label": "Owner account setup"},
+    {"key": "owner_activated", "label": "Owner account activated"},
+    {"key": "profile_complete", "label": "Complete restaurant profile"},
+    {"key": "branches", "label": "Configure branches"},
+    {"key": "tables_configured", "label": "Configure tables & QR codes"},
+    {"key": "menu_configured", "label": "Configure menu"},
+    {"key": "staff_invited", "label": "Invite employees"},
+    {"key": "payments_configured", "label": "Configure payments"},
+    {"key": "operational", "label": "Start operations"},
+]
+
+
+def _compute_stage(db: Session, restaurant_id: UUID) -> str:
+    """Compute the onboarding stage from existing data.
+
+    Stage advances only when the required data is present. This is computed
+    (not manual) so the checklist always reflects reality.
+
+    Uses raw SQL instead of cross-module ORM imports to respect the module
+    boundary (the only sanctioned edge is platform -> tenancy via
+    services.platform_directory).
+    """
+    # Check operational: at least one order exists
+    has_order = db.scalar(
+        text(
+            "SELECT 1 FROM orders WHERE restaurant_id = :rid LIMIT 1"
+        ),
+        {"rid": restaurant_id},
+    )
+    if has_order:
+        return "operational"
+
+    # Check payments: at least one payment method configured
+    has_payment = db.scalar(
+        text(
+            "SELECT 1 FROM payment_methods WHERE restaurant_id = :rid LIMIT 1"
+        ),
+        {"rid": restaurant_id},
+    )
+    if has_payment:
+        return "payments_configured"
+
+    # Check staff: at least one non-owner membership
+    has_staff = db.scalar(
+        text(
+            "SELECT 1 FROM restaurant_memberships "
+            "WHERE restaurant_id = :rid AND role <> 'owner' "
+            "AND status <> 'REMOVED' LIMIT 1"
+        ),
+        {"rid": restaurant_id},
+    )
+    if has_staff:
+        return "staff_invited"
+
+    # Check menu: at least one category AND one item
+    has_category = db.scalar(
+        text(
+            "SELECT 1 FROM menu_categories WHERE restaurant_id = :rid LIMIT 1"
+        ),
+        {"rid": restaurant_id},
+    )
+    has_item = db.scalar(
+        text(
+            "SELECT 1 FROM menu_items WHERE restaurant_id = :rid LIMIT 1"
+        ),
+        {"rid": restaurant_id},
+    )
+    if has_category and has_item:
+        return "menu_configured"
+
+    # Check tables: at least one table
+    has_table = db.scalar(
+        text(
+            "SELECT 1 FROM restaurant_tables WHERE branch_id = :rid LIMIT 1"
+        ),
+        {"rid": restaurant_id},
+    )
+    if has_table:
+        return "tables_configured"
+
+    # Check branches: at least one branch
+    has_branch = db.scalar(
+        text("SELECT 1 FROM branches WHERE restaurant_id = :rid LIMIT 1"),
+        {"rid": restaurant_id},
+    )
+    if has_branch:
+        return "branches"
+
+    # Check profile: settings have branding (logo or accent color)
+    settings = db.get(RestaurantSettings, restaurant_id)
+    if settings and (
+        settings.brand_logo_url
+        or settings.brand_accent_hex
+    ):
+        return "profile_complete"
+
+    return "registered"
+
+
+@router.get("/onboarding/status", response_model=dict)
+def onboarding_status(
+    actor: Actor = Depends(require_permission("staff.manage")),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get the current onboarding stage and progress for the tenant.
+
+    The stage is computed from existing data (computed, not manual), so it
+    always reflects what has actually been configured.
+    """
+    restaurant_id = actor.restaurant_id
+    settings = db.get(RestaurantSettings, restaurant_id)
+    stored_stage = settings.onboarding_stage if settings else "registered"
+    computed_stage = _compute_stage(db, restaurant_id)
+
+    # Determine completed steps: all steps before the computed stage
+    computed_index = STAGE_ORDER.index(computed_stage)
+    completed_steps = STAGE_ORDER[:computed_index]
+    remaining_steps = STAGE_ORDER[computed_index:]
+
+    percent = int((len(completed_steps) / len(STAGE_ORDER)) * 100)
+
+    return {
+        "restaurant_id": str(restaurant_id),
+        "stored_stage": stored_stage,
+        "computed_stage": computed_stage,
+        "stage_label": STAGE_LABELS.get(computed_stage, computed_stage),
+        "current_step_index": computed_index,
+        "total_steps": len(STAGE_ORDER),
+        "percent_complete": percent,
+        "completed_steps": completed_steps,
+        "remaining_steps": remaining_steps,
+        "steps": [
+            {
+                "key": s["key"],
+                "label": s["label"],
+                "completed": s["key"] in completed_steps,
+            }
+            for s in STAGE_STEPS
+        ],
     }

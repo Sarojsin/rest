@@ -18,7 +18,7 @@ class Restaurant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
     currency_code: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
 
-    # Lifecycle columns (PA-0.11 / plan 04 §2.1). Soft delete only: no row is
+    # Lifecycle columns (PA-0.11 / plan 04 Â§2.1). Soft delete only: no row is
     # ever destroyed by the platform in PA-1.
     archived_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -30,6 +30,9 @@ class Restaurant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     contact_phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
     legal_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     settings: Mapped["RestaurantSettings"] = relationship(back_populates="restaurant")
     memberships: Mapped[list["RestaurantMembership"]] = relationship(back_populates="restaurant")
@@ -64,6 +67,15 @@ class RestaurantSettings(TimestampMixin, Base):
     custom_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
     brand_logo_url: Mapped[str] = mapped_column(String(500), default="")
     brand_accent_hex: Mapped[str] = mapped_column(String(9), default="")
+    # Onboarding stage tracking (Plan 10): registered → owner_invited →
+    # owner_activated → profile_complete → tables_configured → menu_configured
+    # → staff_invited → payments_configured → operational
+    onboarding_stage: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="registered", server_default="registered"
+    )
+    onboarding_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     restaurant: Mapped[Restaurant] = relationship(back_populates="settings")
 
@@ -84,3 +96,38 @@ class RestaurantMembership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     restaurant: Mapped[Restaurant] = relationship(back_populates="memberships")
     user: Mapped["User"] = relationship(back_populates="memberships")  # noqa: F821
+    branch_scopes: Mapped[list["RestaurantMembershipBranch"]] = relationship(
+        back_populates="membership",
+        cascade="all, delete-orphan",
+    )
+
+
+class RestaurantMembershipBranch(UUIDPrimaryKeyMixin, Base):
+    """Links a staff membership to one or more branches.
+
+    Owner memberships are implicitly organization-wide and do not need a row
+    here. A manager/waiter/kitchen/cashier can be scoped to specific branches;
+    multiple rows grant access to multiple branches.
+    """
+
+    __tablename__ = "restaurant_membership_branch"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "membership_id",
+            "branch_id",
+            name="uq_membership_branch_membership_branch",
+        ),
+    )
+
+    membership_id: Mapped[UUID] = mapped_column(
+        ForeignKey("restaurant_memberships.id", ondelete="CASCADE"), nullable=False
+    )
+    branch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("branches.id", ondelete="CASCADE"), nullable=False
+    )
+
+    membership: Mapped["RestaurantMembership"] = relationship(
+        back_populates="branch_scopes"
+    )
+    branch: Mapped["Branch"] = relationship()

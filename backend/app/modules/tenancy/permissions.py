@@ -64,6 +64,7 @@ KITCHEN = {
 
 CASHIER = {
     "orders.read",
+    "orders.create",
     "bills.issue",
     "payments.record",
     "reports.read",
