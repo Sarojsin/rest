@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import Actor, require_permission
+from app.api.deps import Actor, require_permission, require_permission_and_feature
 from app.db.session import get_db
 from app.modules.catalog.schemas import MenuItemPatch, MenuItemWrite
 from app.modules.catalog.services import menu as menu_service
@@ -22,7 +22,7 @@ def get_menu(
 @router.post("/menu/items")
 def create_item(
     payload: MenuItemWrite,
-    actor: Actor = Depends(require_permission("menu.manage")),
+    actor: Actor = Depends(require_permission_and_feature("menu.manage", "menu_management")),
     db: Session = Depends(get_db),
 ) -> dict:
     item = menu_service.create_item(db, actor.restaurant_id, payload)
@@ -33,7 +33,7 @@ def create_item(
 def patch_item(
     item_id: UUID,
     payload: MenuItemPatch,
-    actor: Actor = Depends(require_permission("menu.manage")),
+    actor: Actor = Depends(require_permission_and_feature("menu.manage", "menu_management")),
     db: Session = Depends(get_db),
 ) -> dict:
     item = menu_service.patch_item(db, actor.restaurant_id, item_id, payload)

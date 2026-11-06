@@ -19,9 +19,10 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
@@ -184,7 +185,11 @@ class PlatformPlan(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 class PlatformSubscription(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """One live platform subscription per tenant (plan 04 §1.5)."""
+    """One live platform subscription per tenant (plan 04 §1.5).
+
+    Snapshots a specific plan version at creation time so changing a plan's
+    price or limits never silently alters existing subscribers' terms.
+    """
 
     __tablename__ = "platform_subscriptions"
 
@@ -193,6 +198,9 @@ class PlatformSubscription(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     plan_id: Mapped[UUID] = mapped_column(
         ForeignKey("platform_plans.id"), nullable=False
+    )
+    plan_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("platform_plan_versions.id"), nullable=True
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     trial_ends_at: Mapped[datetime | None] = mapped_column(
@@ -220,7 +228,18 @@ class PlatformSubscription(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     billing_interval_snapshot: Mapped[str] = mapped_column(
         String(16), nullable=False, default="MONTHLY"
     )
+    trial_extension_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+    trial_extension_total_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
     created_by_admin_id: Mapped[UUID | None] = mapped_column(nullable=True)
+
+    plan_version: Mapped["PlatformPlanVersion | None"] = relationship(  # noqa: F821
+        foreign_keys=[plan_version_id],
+        lazy="selectin",
+    )
 
     __table_args__ = (
         Index(
@@ -233,6 +252,7 @@ class PlatformSubscription(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("ix_platform_subscriptions_status", "status"),
         Index("ix_platform_subscriptions_plan", "plan_id"),
+        Index("ix_platform_subscriptions_plan_version", "plan_version_id"),
     )
 
 
@@ -464,6 +484,38 @@ class PlatformPaymentEvent(UUIDPrimaryKeyMixin, Base):
     )
 
 
+class PlatformPaymentWebhookLog(UUIDPrimaryKeyMixin, Base):
+    """Outbound payment-gateway webhook delivery ledger (PA-01.5).
+
+    Tracks delivery attempts and retries for webhooks the platform sends to a
+    payment provider. Append-mostly; ``retry_count`` and delivery timestamps
+    are updated as delivery progresses.
+    """
+
+    __tablename__ = "platform_payment_webhook_logs"
+
+    event_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="sent", server_default="sent"
+    )
+    response_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    response_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    retry_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now_utc
+    )
+
+    __table_args__ = (
+        Index("ix_platform_payment_webhook_logs_event_type", "event_type"),
+    )
+
+
 class PlatformSetting(Base):
     """Allowlisted platform configuration key/value store (plan 04 §1.12)."""
 
@@ -483,18 +535,340 @@ class PlatformSetting(Base):
     )
 
 
+class PlatformPlanVersion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Versioned pricing and trial config for a plan.
+
+    Existing subscribers remain on their plan version until explicitly
+    migrated. Changing a plan's price or limits only affects new
+    subscriptions created after the new version is published.
+    """
+
+    __tablename__ = "platform_plan_versions"
+
+    plan_id: Mapped[UUID] = mapped_column(
+        ForeignKey("platform_plans.id", ondelete="CASCADE"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    price_monthly_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    price_annual_minor: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency_code: Mapped[str] = mapped_column(String(3), nullable=False, default="NPR")
+    trial_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    effective_from: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now_utc
+    )
+    effective_to: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Grace window (days) after an invoice due date before suspension (PA-01.5).
+    grace_period_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=7, server_default="7"
+    )
+
+    __table_args__ = (
+        Index("ix_platform_plan_versions_plan_active", "plan_id", "is_active"),
+        Index("ix_platform_plan_versions_effective", "effective_from", "effective_to"),
+    )
+
+
+class PlatformPlanFeature(UUIDPrimaryKeyMixin, Base):
+    """A feature belonging to a plan version."""
+
+    __tablename__ = "platform_plan_features"
+
+    plan_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("platform_plan_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    feature_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_plan_features_version", "plan_version_id"),
+    )
+
+
+class PlatformPlanLimit(UUIDPrimaryKeyMixin, Base):
+    """A usage limit belonging to a plan version."""
+
+    __tablename__ = "platform_plan_limits"
+
+    plan_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("platform_plan_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    limit_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    limit_value: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_plan_limits_version", "plan_version_id"),
+    )
+
+
+class PlatformTenantUsage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Cached usage counters per tenant.
+
+    Denormalized cache for fast limit checks. platform_usage_events is
+    the source of truth for reconciliation.
+    """
+
+    __tablename__ = "platform_tenant_usage"
+
+    restaurant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("restaurants.id", ondelete="CASCADE"), nullable=False
+    )
+    branch_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    owner_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    manager_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    waiter_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    kitchen_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cashier_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    table_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        Index("ix_platform_tenant_usage_restaurant", "restaurant_id", unique=True),
+    )
+
+
+class PlatformUsageEvent(UUIDPrimaryKeyMixin, Base):
+    """Append-only ledger of usage changes.
+
+    Source of truth for reconciling platform_tenant_usage counters. Append-only:
+    rows are never updated, so there is no ``updated_at`` column.
+    """
+
+    __tablename__ = "platform_usage_events"
+
+    restaurant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("restaurants.id", ondelete="CASCADE"), nullable=False
+    )
+    resource_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    change: Mapped[int] = mapped_column(Integer, nullable=False)  # +1 or -1
+    actor_admin_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("platform_admins.id", ondelete="SET NULL"), nullable=True
+    )
+    reason: Mapped[str] = mapped_column(String(1000), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_platform_usage_events_restaurant_created", "restaurant_id", "created_at"),
+        Index("ix_platform_usage_events_resource", "resource_type"),
+    )
+
+
+class PlatformSubscriptionTrialHistory(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Track all trials per tenant to prevent repeated trial creation."""
+
+    __tablename__ = "platform_subscription_trial_history"
+
+    restaurant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("restaurants.id", ondelete="CASCADE"), nullable=False
+    )
+    trial_start_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    trial_end_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    plan_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("platform_plan_versions.id", ondelete="SET NULL"), nullable=True
+    )
+    converted_to_paid: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    converted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    converted_payment_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("platform_payments.id", ondelete="SET NULL"), nullable=True
+    )
+    reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+    __table_args__ = (
+        Index("ix_platform_subscription_trial_history_restaurant", "restaurant_id"),
+        Index("ix_platform_subscription_trial_history_trial_end", "trial_end_at"),
+    )
+
+
+class SelfServiceRegistration(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Restaurant-owner self-service registration (PA-01.4).
+
+    Captures an inbound registration request before an operator approves or
+    rejects it. On approval a restaurant + subscription are provisioned and an
+    invitation token is issued to the owner.
+    """
+
+    __tablename__ = "self_service_registrations"
+    __table_args__ = (
+        UniqueConstraint(
+            "restaurant_slug", name="uq_self_service_registrations_restaurant_slug"
+        ),
+        UniqueConstraint(
+            "owner_email", name="uq_self_service_registrations_owner_email"
+        ),
+    )
+
+    restaurant_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("restaurants.id", ondelete="SET NULL"), nullable=True
+    )
+    restaurant_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    restaurant_slug: Mapped[str] = mapped_column(String(80), nullable=False)
+    owner_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    owner_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    owner_phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    plan_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    trial_days: Mapped[int] = mapped_column(Integer, nullable=False, default=14)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    legal_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
+    currency_code: Mapped[str] = mapped_column(String(3), nullable=False, default="NPR")
+    source: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    reviewed_by_admin_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("platform_admins.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    review_reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    invitation_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    invitation_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    invitation_used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class PlatformSupportTicket(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Customer support ticket linked to a restaurant tenant."""
+
+    __tablename__ = "platform_support_tickets"
+
+    restaurant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("restaurants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    subject: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="open"
+    )  # open, in_progress, resolved, closed
+    priority: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="medium"
+    )  # low, medium, high, urgent
+    assigned_to_admin_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("platform_admins.id", ondelete="SET NULL"), nullable=True
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        Index("ix_platform_support_tickets_restaurant", "restaurant_id"),
+        Index("ix_platform_support_tickets_status", "status"),
+    )
+
+
+class PlatformSubscriptionChangeHistory(UUIDPrimaryKeyMixin, Base):
+    """Audit trail for subscription plan changes (Plan 12).
+
+    Records every plan change: which tenant, from which plan version,
+    to which plan version, who changed it, and why.
+    """
+
+    __tablename__ = "platform_subscription_change_history"
+
+    restaurant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("restaurants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    from_plan_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("platform_plan_versions.id", ondelete="SET NULL"), nullable=True
+    )
+    to_plan_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("platform_plan_versions.id", ondelete="SET NULL"), nullable=False
+    )
+    changed_by_admin_id: Mapped[UUID] = mapped_column(
+        ForeignKey("platform_admins.id", ondelete="SET NULL"), nullable=True
+    )
+    reason: Mapped[str] = mapped_column(String(1000), nullable=False)
+    prorated_amount_minor: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )  # Prorated amount charged/credited
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now_utc
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_platform_sub_change_history_restaurant", "restaurant_id", "created_at"
+        ),
+    )
+
+
+class PlatformExportJob(UUIDPrimaryKeyMixin, Base):
+    """Async export job for tenant data (Plan 13).
+
+    Tracks data export jobs: pending -> completed/failed, with download URL
+    when ready. Jobs expire after a configurable TTL.
+    """
+
+    __tablename__ = "platform_export_jobs"
+
+    restaurant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("restaurants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="pending"
+    )  # pending, completed, failed
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now_utc
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    download_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    created_by_admin_id: Mapped[UUID] = mapped_column(
+        ForeignKey("platform_admins.id", ondelete="SET NULL"), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_platform_export_jobs_status", "status"),
+    )
+
+
 __all__ = [
     "PlatformAdmin",
     "PlatformAuditLog",
+    "PlatformExportJob",
     "PlatformInvoice",
     "PlatformInvoiceLine",
     "PlatformInvoiceSequence",
     "PlatformOneTimeToken",
     "PlatformPayment",
     "PlatformPaymentEvent",
+    "PlatformPaymentWebhookLog",
     "PlatformPlan",
+    "PlatformPlanFeature",
+    "PlatformPlanLimit",
+    "PlatformPlanVersion",
     "PlatformRefreshToken",
     "PlatformSetting",
     "PlatformSubscription",
     "PlatformSubscriptionEvent",
+    "PlatformSubscriptionTrialHistory",
+    "PlatformTenantUsage",
+    "PlatformUsageEvent",
+    "SelfServiceRegistration",
+    "PlatformSupportTicket",
+    "PlatformSubscriptionChangeHistory",
 ]
+

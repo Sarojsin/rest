@@ -3,7 +3,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import Actor, require_permission
+from app.api.deps import (
+    Actor,
+    consume_tenant_limit,
+    release_tenant_limit,
+    require_permission,
+    require_tenant_feature,
+)
 from app.db.session import get_db
 from app.modules.operations.schemas import TableCreate, TableOut, TableUpdate
 from app.modules.operations.services import tables as table_service
@@ -20,7 +26,14 @@ def list_tables(
     return table_service.list_tables(db, actor.restaurant_id, include_archived=include_archived)
 
 
-@router.post("/tables", response_model=TableOut)
+@router.post(
+    "/tables",
+    response_model=TableOut,
+    dependencies=[
+        Depends(require_tenant_feature("qr_ordering")),
+        Depends(consume_tenant_limit("tables")),
+    ],
+)
 def create_table(
     payload: TableCreate,
     actor: Actor = Depends(require_permission("tables.configure")),
@@ -39,7 +52,11 @@ def update_table(
     return table_service.update_table(db, actor.membership, table_id, payload)
 
 
-@router.post("/tables/{table_id}/archive", response_model=TableOut)
+@router.post(
+    "/tables/{table_id}/archive",
+    response_model=TableOut,
+    dependencies=[Depends(release_tenant_limit("tables"))],
+)
 def archive_table(
     table_id: UUID,
     actor: Actor = Depends(require_permission("tables.configure")),
@@ -48,7 +65,14 @@ def archive_table(
     return table_service.archive_table(db, actor.membership, table_id)
 
 
-@router.post("/tables/{table_id}/restore", response_model=TableOut)
+@router.post(
+    "/tables/{table_id}/restore",
+    response_model=TableOut,
+    dependencies=[
+        Depends(require_tenant_feature("qr_ordering")),
+        Depends(consume_tenant_limit("tables")),
+    ],
+)
 def restore_table(
     table_id: UUID,
     actor: Actor = Depends(require_permission("tables.configure")),
@@ -57,7 +81,10 @@ def restore_table(
     return table_service.restore_table(db, actor.membership, table_id)
 
 
-@router.post("/tables/{table_id}/qr/rotate")
+@router.post(
+    "/tables/{table_id}/qr/rotate",
+    dependencies=[Depends(require_tenant_feature("qr_ordering"))],
+)
 def rotate_qr(
     table_id: UUID,
     actor: Actor = Depends(require_permission("tables.configure")),

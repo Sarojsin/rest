@@ -311,7 +311,7 @@ def _consume_token(
 
 @router.get("/invitations/{token}")
 def invitation_details(token: str, db: Session = Depends(get_db)) -> dict:
-    row = _consume_token(db, token, ("OWNER_INVITE", "ADMIN_INVITE"))
+    row = _consume_token(db, token, ("OWNER_INVITE", "STAFF_INVITE", "ADMIN_INVITE"))
     tenant_name = None
     if row.restaurant_id:
         tenant = platform_directory.get_tenant(db, row.restaurant_id)
@@ -331,14 +331,14 @@ def accept_invitation(
     request: Request,
     db: Session = Depends(get_db),
 ) -> dict:
-    row = _consume_token(db, token, ("OWNER_INVITE", "ADMIN_INVITE"))
+    row = _consume_token(db, token, ("OWNER_INVITE", "STAFF_INVITE", "ADMIN_INVITE"))
     valid, errors = validate_password_policy(payload.password)
     if not valid:
         raise AppError(422, "PASSWORD_POLICY", "Invalid input", "; ".join(errors))
 
     password_hash = hash_password(payload.password)
     now = datetime.now(UTC)
-    if row.purpose == "OWNER_INVITE":
+    if row.purpose in ("OWNER_INVITE", "STAFF_INVITE"):
         if row.restaurant_id is None:
             raise AppError(404, "INVITATION_NOT_FOUND", "Not found", "This link is no longer valid.")
         platform_directory.accept_owner_invitation(
@@ -348,7 +348,11 @@ def accept_invitation(
             display_name=payload.display_name,
             password_hash=password_hash,
         )
-        action = "OWNER_INVITE_ACCEPTED"
+        action = (
+            "OWNER_INVITE_ACCEPTED"
+            if row.purpose == "OWNER_INVITE"
+            else "STAFF_INVITE_ACCEPTED"
+        )
     else:
         admin = db.get(PlatformAdmin, row.platform_admin_id) if row.platform_admin_id else None
         if admin is None:

@@ -21,6 +21,12 @@ from app.db.session import get_db
 from app.modules.platform.constants import PLATFORM_ACCESS_COOKIE
 from app.modules.platform.models import PlatformAdmin
 from app.modules.platform.permissions import PLATFORM_PERMISSIONS, permissions_for
+from app.modules.platform.services.entitlements import (
+    check_feature_enabled,
+    check_limit_available,
+    consume_limit,
+    get_effective_entitlements,
+)
 from app.shared.errors import AppError
 
 
@@ -121,3 +127,146 @@ def require_platform_step_up(
             extra={"max_age_seconds": int(window.total_seconds())},
         )
     return actor
+
+
+# ---------------------------------------------------------------------------
+# Tenant entitlement enforcement dependencies (Plan 02)
+# ---------------------------------------------------------------------------
+
+
+def require_tenant_feature(feature_key: str) -> Callable[..., PlatformActor]:
+    """Dependency that requires a feature to be enabled for the target tenant.
+
+    The target tenant is identified by the ``tenant_id`` query parameter or
+    path parameter named ``tenant_id`` or ``restaurant_id``.
+    """
+
+    def dependency(
+        actor: PlatformActor = Depends(get_platform_admin),
+        db: Session = Depends(get_db),
+        tenant_id: UUID | None = None,
+        restaurant_id: UUID | None = None,
+    ) -> PlatformActor:
+        target_id = tenant_id or restaurant_id
+        if target_id is None:
+            raise AppError(
+                422,
+                "MISSING_TENANT_ID",
+                "Invalid input",
+                "tenant_id or restaurant_id is required.",
+            )
+        if not check_feature_enabled(
+            db, restaurant_id=target_id, feature_key=feature_key
+        ):
+            raise AppError(
+                403,
+                "FEATURE_NOT_ENABLED",
+                "Forbidden",
+                f"Feature {feature_key} is not enabled for this tenant.",
+                extra={"feature_key": feature_key, "tenant_id": str(target_id)},
+            )
+        return actor
+
+    return dependency
+
+
+def require_tenant_limit(
+    limit_key: str, increment: int = 1
+) -> Callable[..., PlatformActor]:
+    """Dependency that requires a limit to be available for the target tenant.
+
+    Checks current + increment <= plan limit. Does NOT consume the limit;
+    use consume_tenant_limit if you also need to record the usage.
+    """
+
+    def dependency(
+        actor: PlatformActor = Depends(get_platform_admin),
+        db: Session = Depends(get_db),
+        tenant_id: UUID | None = None,
+        restaurant_id: UUID | None = None,
+    ) -> PlatformActor:
+        target_id = tenant_id or restaurant_id
+        if target_id is None:
+            raise AppError(
+                422,
+                "MISSING_TENANT_ID",
+                "Invalid input",
+                "tenant_id or restaurant_id is required.",
+            )
+        if not check_limit_available(
+            db, restaurant_id=target_id, limit_key=limit_key, increment=increment
+        ):
+            raise AppError(
+                409,
+                "SEAT_LIMIT_REACHED",
+                "Conflict",
+                f"Limit {limit_key} has been reached for this tenant.",
+                extra={"limit_key": limit_key, "tenant_id": str(target_id)},
+            )
+        return actor
+
+    return dependency
+
+
+def consume_tenant_limit(
+    limit_key: str, increment: int = 1
+) -> Callable[..., PlatformActor]:
+    """Dependency that atomically consumes a limit for the target tenant.
+
+    Increments the usage counter and verifies it stays within the plan limit.
+    Records a usage event. This is the dependency to use when creating a new
+    staff member, branch, table, etc.
+    """
+
+    def dependency(
+        actor: PlatformActor = Depends(get_platform_admin),
+        db: Session = Depends(get_db),
+        tenant_id: UUID | None = None,
+        restaurant_id: UUID | None = None,
+    ) -> PlatformActor:
+        target_id = tenant_id or restaurant_id
+        if target_id is None:
+            raise AppError(
+                422,
+                "MISSING_TENANT_ID",
+                "Invalid input",
+                "tenant_id or restaurant_id is required.",
+            )
+        if not consume_limit(
+            db,
+            restaurant_id=target_id,
+            limit_key=limit_key,
+            increment=increment,
+            actor_admin_id=actor.admin_id,
+            reason=f"consume via {limit_key} endpoint",
+        ):
+            raise AppError(
+                409,
+                "SEAT_LIMIT_REACHED",
+                "Conflict",
+                f"Limit {limit_key} has been reached for this tenant.",
+                extra={"limit_key": limit_key, "tenant_id": str(target_id)},
+            )
+        return actor
+
+    return dependency
+
+
+def get_tenant_entitlements(
+    db: Session = Depends(get_db),
+    tenant_id: UUID | None = None,
+    restaurant_id: UUID | None = None,
+) -> dict | None:
+    """Dependency that returns the effective entitlements for a tenant.
+
+    Returns None if no active subscription.
+    """
+    target_id = tenant_id or restaurant_id
+    if target_id is None:
+        raise AppError(
+            422,
+            "MISSING_TENANT_ID",
+            "Invalid input",
+            "tenant_id or restaurant_id is required.",
+        )
+    return get_effective_entitlements(db, restaurant_id=target_id)

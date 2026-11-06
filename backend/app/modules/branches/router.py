@@ -4,7 +4,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import Actor, require_permission
+from app.api.deps import (
+    Actor,
+    consume_tenant_limit,
+    require_permission,
+    require_permission_and_consume_limit,
+    require_tenant_feature,
+)
 from app.db.session import get_db
 from app.modules.branches.models import Branch
 from app.modules.branches.schemas import (
@@ -46,7 +52,9 @@ def list_branches(
 @router.post("", response_model=BranchOut, status_code=201)
 def create_branch(
     payload: BranchIn,
-    actor: Actor = Depends(require_permission("branches.create")),
+    actor: Actor = Depends(
+        require_permission_and_consume_limit("branches.create", "branches")
+    ),
     db: Session = Depends(get_db),
 ) -> BranchOut:
     return branch_service.create_branch(db, actor, payload)
@@ -95,7 +103,15 @@ def list_tables(
     return branch_service.list_branch_tables(db, branch_id, include_archived)
 
 
-@router.post("/{branch_id}/tables", response_model=BranchTableOut, status_code=201)
+@router.post(
+    "/{branch_id}/tables",
+    response_model=BranchTableOut,
+    status_code=201,
+    dependencies=[
+        Depends(require_tenant_feature("qr_ordering")),
+        Depends(consume_tenant_limit("tables")),
+    ],
+)
 def create_table(
     branch_id: UUID,
     payload: BranchTableIn,

@@ -68,6 +68,17 @@ class Settings(BaseSettings):
     platform_recovery_code_count: int = 10
     platform_totp_issuer: str = "Restaurant Platform"
 
+    # Plan 14: invitation email delivery.
+    email_backend: str = "log"  # "smtp" | "log"
+    smtp_host: str = "localhost"
+    smtp_port: int = 1025
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "noreply@localhost"
+    smtp_starttls: bool = False
+    invitation_base_url: str = ""
+    invitation_ttl_hours: int = 72
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]

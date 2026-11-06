@@ -41,6 +41,9 @@ CSRF_EXEMPT_PATHS = frozenset(
 CSRF_EXEMPT_PREFIXES = (
     "/api/platform/auth/invitations/",
     "/api/platform/auth/password-reset/",
+    # Public self-service surface (PA-01.4): the caller has no session and
+    # therefore no CSRF cookie yet. Origin is still enforced for these routes.
+    "/api/platform/public/",
 )
 
 

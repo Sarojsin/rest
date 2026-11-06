@@ -430,3 +430,297 @@ def serialize_subscription(db: Session, subscription: PlatformSubscription) -> d
     }
 
 
+def auto_renew_subscription(
+    db: Session,
+    *,
+    subscription: PlatformSubscription,
+    admin_id: UUID,
+    reason: str = "Automatic renewal",
+) -> PlatformInvoice:
+    """Auto-generate an invoice on subscription renewal.
+
+    This function:
+    1. Creates an invoice for the upcoming billing period
+    2. Sets the due date based on the billing interval
+    3. Returns the created invoice
+    """
+    from app.modules.platform.models import PlatformInvoice, PlatformInvoiceLine
+
+    # Determine billing interval and period
+    if subscription.billing_interval_snapshot == "ANNUAL":
+        period_days = 365
+        prefix = "ANN"
+    else:
+        period_days = 30
+        prefix = "MTH"
+
+    from datetime import timedelta
+    issued_at = datetime.now(UTC)
+    due_at = issued_at + timedelta(days=15)  # 15-day payment window
+
+    # Get the plan version for pricing
+    plan_version = (
+        db.execute(
+            select(PlatformPlanVersion).where(
+                PlatformPlanVersion.plan_id == subscription.plan_id,
+                PlatformPlanVersion.is_active == True,
+            )
+        )
+        .scalars()
+        .first()
+    )
+
+    # Determine pricing
+    if plan_version and subscription.billing_interval_snapshot == "ANNUAL":
+        subtotal_minor = plan_version.price_annual_minor or 0
+    elif plan_version:
+        subtotal_minor = plan_version.price_monthly_minor or 0
+    else:
+        subtotal_minor = 0
+
+    # Create the invoice
+    invoice = PlatformInvoice(
+        restaurant_id=subscription.restaurant_id,
+        subscription_id=subscription.id,
+        platform_plan_version_id=plan_version.id if plan_version else None,
+        status="OPEN",
+        billing_interval=subscription.billing_interval_snapshot,
+        period_start=subscription.current_period_end,
+        period_end=subscription.current_period_end + timedelta(days=period_days),
+        due_date=due_at,
+        subtotal_minor=subtotal_minor,
+        discount_minor=0,
+        total_minor=subtotal_minor,
+        refunded_amount_minor=0,
+        currency_code=subscription.currency_snapshot or "NPR",
+        issued_at=issued_at,
+        due_at=due_at,
+        invoice_type="AUTO_RENEWAL",
+        issuer_name=get_setting(db, "platform.invoice.issuer_name", "") or "",
+        issuer_address=get_setting(db, "platform.invoice.issuer_address", "") or None,
+        issuer_pan=get_setting(db, "platform.invoice.issuer_pan", "") or None,
+        issuer_vat_registered=bool(
+            get_setting(db, "platform.invoice.issuer_vat_registered", False)
+        ),
+        issuer_vat_number=get_setting(db, "platform.invoice.issuer_vat_number", "") or None,
+        buyer_name="",
+        buyer_pan=None,
+        buyer_address=None,
+        tax_treatment=str(
+            get_setting(db, "platform.invoice.tax_treatment", "UNCONFIRMED") or "UNCONFIRMED"
+        ),
+        tax_amount_minor=0,
+        template_version=get_setting(
+            db, "platform.invoice.default_template_version", "v1-unapproved"
+        ),
+        notes=reason,
+        created_by_admin_id=admin_id,
+    )
+    db.add(invoice)
+    db.flush()
+
+    # Add invoice line for the plan
+    db.add(
+        PlatformInvoiceLine(
+            invoice_id=invoice.id,
+            kind="PLAN",
+            description=f"{plan.name if plan else 'Plan'} subscription ({subscription.billing_interval_snapshot})",
+            quantity=1,
+            unit_amount_minor=subtotal_minor,
+            amount_minor=subtotal_minor,
+            sort_order=0,
+        )
+    )
+    db.flush()
+    recalculate_invoice(db, invoice)
+
+    # Add payment event for invoice creation
+    from app.modules.platform.models import PlatformPaymentEvent
+
+    event = PlatformPaymentEvent(
+        payment_id=None,
+        invoice_id=invoice.id,
+        restaurant_id=subscription.restaurant_id,
+        event_type="INVOICE_CREATED",
+        amount_minor=subtotal_minor,
+        currency_code=subscription.currency_snapshot or "NPR",
+        actor_admin_id=admin_id,
+        reason=reason,
+        metadata_json={"auto_renewed": True},
+    )
+    db.add(event)
+    db.flush()
+
+    return invoice
+
+
+def check_grace_period(
+    db: Session, *, restaurant_id: UUID, subscription: PlatformSubscription
+) -> dict:
+    """Check if a subscription is in grace period and return status.
+
+    Returns:
+        {
+            "in_grace_period": bool,
+            "grace_ends_at": datetime | None,
+            "days_remaining": int,
+            "should_suspend": bool,
+        }
+    """
+    from datetime import datetime as dt_now
+
+    now = dt_now.now(UTC)
+    grace_ends = subscription.grace_ends_at
+
+    if not grace_ends or now < grace_ends:
+        days_remaining = max(0, int((grace_ends - now).total_seconds() / 86400)) if grace_ends else 0
+        return {
+            "in_grace_period": False,
+            "grace_ends_at": grace_ends,
+            "days_remaining": days_remaining,
+            "should_suspend": False,
+        }
+
+    # Past grace period - subscription should be suspended
+    return {
+        "in_grace_period": True,
+        "grace_ends_at": grace_ends,
+        "days_remaining": 0,
+        "should_suspend": True,
+    }
+
+
+def process_payment_webhook(
+    db: Session,
+    *,
+    subscription_id: UUID,
+    event_type: str,
+    amount_minor: int | None = None,
+    currency_code: str | None = None,
+    payment_id: UUID | None = None,
+    status: str = "pending",
+    metadata: dict | None = None,
+) -> dict:
+    """Process a payment webhook event from a payment provider.
+
+    Handles:
+    - Payment confirmation
+    - Invoice marking as paid
+    - Grace period reset
+    - Subscription status updates
+    """
+    from app.modules.platform.models import (
+        PlatformPayment,
+        PlatformPaymentEvent,
+        PlatformInvoice,
+    )
+
+    # Find or create the payment record
+    payment = (
+        db.execute(
+            select(PlatformPayment).where(
+                PlatformPayment.subscription_id == subscription_id,
+                PlatformPayment.payment_id == payment_id,
+            )
+        )
+        .scalars()
+        .first()
+    )
+
+    if not payment:
+        # Create new payment record
+        payment = PlatformPayment(
+            subscription_id=subscription_id,
+            payment_id=payment_id,
+            kind="PAYMENT" if event_type in ("payment_success", "charge_success") else "REFUND",
+            amount_minor=amount_minor or 0,
+            currency_code=currency_code or "NPR",
+            status=status,
+            provider=metadata.get("provider") if metadata else None,
+            provider_reference=metadata.get("provider_reference") if metadata else None,
+            evidence_type=metadata.get("evidence_type") if metadata else None,
+            evidence_ref=metadata.get("evidence_ref") if metadata else None,
+            created_by_admin_id=metadata.get("admin_id") if metadata else None,
+            metadata_json=metadata,
+        )
+        db.add(payment)
+        db.flush()
+    else:
+        # Update existing payment
+        payment.status = status
+        payment.amount_minor = amount_minor or payment.amount_minor
+        payment.currency_code = currency_code or payment.currency_code
+        if payment_id:
+            payment.payment_id = payment_id
+        if metadata:
+            payment.metadata_json = dict(payment.metadata_json or {}, **(metadata or {}))
+        db.flush()
+
+    # Create payment event record
+    event = PlatformPaymentEvent(
+        payment_id=payment.id,
+        invoice_id=payment.invoice_id,
+        restaurant_id=payment.restaurant_id,
+        event_type=event_type,
+        amount_minor=payment.amount_minor,
+        currency_code=payment.currency_code,
+        actor_admin_id=metadata.get("admin_id") if metadata else None,
+        reason=metadata.get("reason") if metadata else None,
+        metadata_json=metadata,
+    )
+    db.add(event)
+    db.flush()
+
+    # Handle based on event type
+    if event_type in ("payment_success", "charge_success"):
+        # Mark invoice as paid
+        if payment.invoice_id:
+            invoice = db.get(PlatformInvoice, payment.invoice_id)
+            if invoice:
+                from app.modules.platform.services.billing import invoice_status_after_payment
+
+                new_status = invoice_status_after_payment(invoice, payment.amount_minor)
+                invoice.status = new_status
+                invoice.paid_at = now
+                # Reset grace period on successful payment
+                grace_days = get_setting(db, "platform.subscription.grace_period_days", 7) or 7
+                invoice.grace_ends_at = now + timedelta(days=grace_days)
+                db.flush()
+
+                # Add payment event for payment confirmation
+                pay_event = PlatformPaymentEvent(
+                    payment_id=payment.id,
+                    invoice_id=invoice.id,
+                    restaurant_id=invoice.restaurant_id,
+                    event_type="PAYMENT_CONFIRMED",
+                    amount_minor=payment.amount_minor,
+                    currency_code=invoice.currency_code,
+                    actor_admin_id=metadata.get("admin_id") if metadata else None,
+                    reason="Payment webhook confirmed payment",
+                    metadata_json=metadata,
+                )
+                db.add(pay_event)
+                db.flush()
+
+    elif event_type in ("payment_failed", "charge_failed"):
+        # Handle payment failure - extend grace period
+        if payment.invoice_id:
+            invoice = db.get(PlatformInvoice, payment.invoice_id)
+            if invoice:
+                # Extend grace period by 7 days
+                grace_days = get_setting(db, "platform.subscription.grace_period_days", 7) or 7
+                current_grace = invoice.grace_ends_at or now
+                invoice.grace_ends_at = current_grace + timedelta(days=grace_days)
+                db.flush()
+
+    # Return summary
+    return {
+        "payment_id": payment.id,
+        "invoice_id": payment.invoice_id,
+        "status": payment.status,
+        "event_type": event_type,
+        "amount_minor": payment.amount_minor,
+        "invoice_status": invoice.status if payment.invoice_id else None,
+    }
+
+

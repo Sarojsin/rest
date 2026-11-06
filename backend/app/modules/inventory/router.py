@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import Actor, require_permission
+from app.api.deps import Actor, require_permission_and_feature
 from app.db.session import get_db
 from app.modules.inventory.schemas import (
     IngredientIn,
@@ -36,7 +36,7 @@ class StockLevelIn(BaseModel):
 def list_ingredients(
     status: str | None = Query(default=None),
     supplier_id: UUID | None = Query(default=None),
-    actor: Actor = Depends(require_permission("inventory.read")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.read", "inventory")),
     db: Session = Depends(get_db),
 ) -> list[IngredientOut]:
     return inventory_service.list_ingredients(
@@ -47,7 +47,7 @@ def list_ingredients(
 @router.post("/ingredients", response_model=IngredientOut, status_code=201)
 def create_ingredient(
     payload: IngredientIn,
-    actor: Actor = Depends(require_permission("inventory.manage")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.manage", "inventory")),
     db: Session = Depends(get_db),
 ) -> IngredientOut:
     return inventory_service.create_ingredient(db, actor, payload)
@@ -56,7 +56,7 @@ def create_ingredient(
 @router.get("/ingredients/{ingredient_id}", response_model=IngredientOut)
 def get_ingredient(
     ingredient_id: UUID,
-    actor: Actor = Depends(require_permission("inventory.read")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.read", "inventory")),
     db: Session = Depends(get_db),
 ) -> IngredientOut:
     result = inventory_service.get_ingredient(db, ingredient_id, actor.restaurant_id)
@@ -71,7 +71,7 @@ def get_ingredient(
 def update_ingredient(
     ingredient_id: UUID,
     payload: IngredientUpdateIn,
-    actor: Actor = Depends(require_permission("inventory.manage")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.manage", "inventory")),
     db: Session = Depends(get_db),
 ) -> IngredientOut:
     return inventory_service.update_ingredient(db, actor, ingredient_id, payload)
@@ -81,7 +81,7 @@ def update_ingredient(
 def set_ingredient_stock(
     ingredient_id: UUID,
     payload: StockLevelIn,
-    actor: Actor = Depends(require_permission("inventory.manage")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.manage", "inventory")),
     db: Session = Depends(get_db),
 ) -> IngredientOut:
     return inventory_service.update_ingredient_stock(
@@ -94,7 +94,7 @@ def set_ingredient_stock(
 @router.get("/suppliers", response_model=list[SupplierOut])
 def list_suppliers(
     active_only: bool = Query(default=True),
-    actor: Actor = Depends(require_permission("inventory.read")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.read", "inventory")),
     db: Session = Depends(get_db),
 ) -> list[SupplierOut]:
     return inventory_service.list_suppliers(db, actor.restaurant_id, active_only)
@@ -103,7 +103,7 @@ def list_suppliers(
 @router.post("/suppliers", response_model=SupplierOut, status_code=201)
 def create_supplier(
     payload: SupplierIn,
-    actor: Actor = Depends(require_permission("inventory.manage")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.manage", "inventory")),
     db: Session = Depends(get_db),
 ) -> SupplierOut:
     return inventory_service.create_supplier(db, actor, payload)
@@ -112,7 +112,7 @@ def create_supplier(
 @router.get("/suppliers/{supplier_id}", response_model=SupplierOut)
 def get_supplier(
     supplier_id: UUID,
-    actor: Actor = Depends(require_permission("inventory.read")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.read", "inventory")),
     db: Session = Depends(get_db),
 ) -> SupplierOut:
     result = inventory_service.get_supplier(db, supplier_id, actor.restaurant_id)
@@ -127,7 +127,7 @@ def get_supplier(
 def list_purchase_orders(
     status: str | None = Query(default=None),
     supplier_id: UUID | None = Query(default=None),
-    actor: Actor = Depends(require_permission("inventory.read")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.read", "inventory")),
     db: Session = Depends(get_db),
 ) -> list[PurchaseOrderOut]:
     return inventory_service.list_purchase_orders(
@@ -138,7 +138,7 @@ def list_purchase_orders(
 @router.post("/purchase-orders", response_model=PurchaseOrderOut, status_code=201)
 def create_purchase_order(
     payload: PurchaseOrderIn,
-    actor: Actor = Depends(require_permission("inventory.manage")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.manage", "inventory")),
     db: Session = Depends(get_db),
 ) -> PurchaseOrderOut:
     return inventory_service.create_purchase_order(db, actor, payload)
@@ -147,7 +147,7 @@ def create_purchase_order(
 @router.get("/purchase-orders/{po_id}", response_model=PurchaseOrderOut)
 def get_purchase_order(
     po_id: UUID,
-    actor: Actor = Depends(require_permission("inventory.read")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.read", "inventory")),
     db: Session = Depends(get_db),
 ) -> PurchaseOrderOut:
     result = inventory_service.get_purchase_order(db, po_id, actor.restaurant_id)
@@ -161,7 +161,7 @@ def get_purchase_order(
 @router.post("/purchase-orders/{po_id}/receive", response_model=PurchaseOrderOut)
 def receive_purchase_order(
     po_id: UUID,
-    actor: Actor = Depends(require_permission("inventory.manage")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.manage", "inventory")),
     db: Session = Depends(get_db),
 ) -> PurchaseOrderOut:
     return inventory_service.receive_purchase_order(db, actor, po_id)
@@ -172,7 +172,7 @@ def receive_purchase_order(
 @router.get("/recipes", response_model=list[RecipeIngredientOut])
 def list_recipe_ingredients(
     menu_item_id: UUID | None = Query(default=None),
-    actor: Actor = Depends(require_permission("inventory.read")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.read", "inventory")),
     db: Session = Depends(get_db),
 ) -> list[RecipeIngredientOut]:
     return inventory_service.list_recipe_ingredients(
@@ -184,7 +184,7 @@ def list_recipe_ingredients(
 def set_recipe(
     menu_item_id: UUID,
     payload: RecipeIn,
-    actor: Actor = Depends(require_permission("inventory.manage")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.manage", "inventory")),
     db: Session = Depends(get_db),
 ) -> list[RecipeIngredientOut]:
     return inventory_service.set_recipe_ingredients(
@@ -195,7 +195,7 @@ def set_recipe(
 @router.get("/recipes/{menu_item_id}/cost")
 def recipe_cost(
     menu_item_id: UUID,
-    actor: Actor = Depends(require_permission("inventory.read")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.read", "inventory")),
     db: Session = Depends(get_db),
 ) -> dict:
     return inventory_service.calculate_recipe_cost(
@@ -209,7 +209,7 @@ def recipe_cost(
 def list_stock_movements(
     ingredient_id: UUID | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
-    actor: Actor = Depends(require_permission("inventory.read")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.read", "inventory")),
     db: Session = Depends(get_db),
 ) -> list[StockMovementOut]:
     return inventory_service.list_stock_movements(
@@ -220,7 +220,7 @@ def list_stock_movements(
 @router.post("/stock-movements", response_model=StockMovementOut, status_code=201)
 def create_stock_movement(
     payload: StockMovementIn,
-    actor: Actor = Depends(require_permission("inventory.manage")),
+    actor: Actor = Depends(require_permission_and_feature("inventory.manage", "inventory")),
     db: Session = Depends(get_db),
 ) -> StockMovementOut:
     return inventory_service.record_stock_movement(db, actor, payload)
