@@ -17,13 +17,23 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminTenantsPage from "./pages/admin/AdminTenantsPage";
 import AdminPlansPage from "./pages/admin/AdminPlansPage";
+import AdminPlanVersionsPage from "./pages/admin/AdminPlanVersionsPage";
 import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
+import AdminTenantEntitlementsPage from "./pages/admin/AdminTenantEntitlementsPage";
+import AdminTrialLifecyclePage from "./pages/admin/AdminTrialLifecyclePage";
+import AdminPublicPlansPage from "./pages/admin/AdminPublicPlansPage";
+import AdminPublicRegisterPage from "./pages/admin/AdminPublicRegisterPage";
+import AdminRegisterSuccessPage from "./pages/admin/AdminRegisterSuccessPage";
 import AdminInvoicesPage from "./pages/admin/AdminInvoicesPage";
 import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
 import AdminRefundsPage from "./pages/admin/AdminRefundsPage";
 import AdminPlatformUsersPage from "./pages/admin/AdminPlatformUsersPage";
 import AdminAuditPage from "./pages/admin/AdminAuditPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
+import AdminOnboardingPage from "./pages/admin/AdminOnboardingPage";
+import AdminUsagePage from "./pages/admin/AdminUsagePage";
+import AdminSupportPage from "./pages/admin/AdminSupportPage";
+import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
 import "./styles/admin.css";
 
 /**
@@ -40,8 +50,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <BrowserRouter basename={basename}>
       <PlatformAuthProvider>
         <Routes>
-          <Route path="/login" element={<AdminLoginPage />} />
-          <Route path="/mfa" element={<AdminMfaPage />} />
+          {/* Public routes - no authentication required */}
+          <Route path="/plans" element={<AdminPublicPlansPage />} />
+          <Route path="/register" element={<AdminPublicRegisterPage />} />
+          <Route path="/register-success" element={<AdminRegisterSuccessPage />} />
+
           <Route element={<AdminGuard />}>
             <Route element={<AdminLayout />}>
               <Route index element={<AdminDashboardPage />} />
@@ -54,10 +67,18 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 }
               />
               <Route
-                path="/plans"
+                path="/tenants/:tenant_id/entitlements"
+                element={
+                  <RequirePermission permission="tenant.view">
+                    <AdminTenantEntitlementsPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="/plans/:plan_id/versions"
                 element={
                   <RequirePermission permission="plan.view">
-                    <AdminPlansPage />
+                    <AdminPlanVersionsPage />
                   </RequirePermission>
                 }
               />
@@ -66,6 +87,14 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 element={
                   <RequirePermission permission="subscription.view">
                     <AdminSubscriptionsPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="/subscriptions/trial-lifecycle"
+                element={
+                  <RequirePermission permission="subscription.view">
+                    <AdminTrialLifecyclePage />
                   </RequirePermission>
                 }
               />
@@ -118,10 +147,42 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 }
               />
               <Route
+                path="/onboarding"
+                element={
+                  <RequirePermission permission="tenant.view">
+                    <AdminOnboardingPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="/usage"
+                element={
+                  <RequirePermission permission="tenant.view">
+                    <AdminUsagePage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="/support"
+                element={
+                  <RequirePermission permission="tenant.view">
+                    <AdminSupportPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="/analytics"
+                element={
+                  <RequirePermission permission="analytics.view">
+                    <AdminAnalyticsPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
                 path="/diagnostics"
                 element={
                   <RequirePermission permission="diagnostics.view">
-                    <Navigate to="/admin" replace />
+                    <Navigate to="/" replace />
                   </RequirePermission>
                 }
               />

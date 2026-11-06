@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
 
@@ -58,12 +58,12 @@ export default function AdminPlansPage() {
               <tbody>
                 {items.map((plan: any) => (
                   <tr key={plan.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                    <td style={{ padding: 8 }}>{plan.code}</td>
-                    <td style={{ padding: 8 }}>{plan.name}</td>
-                    <td style={{ padding: 8 }}>{Math.floor(plan.price_monthly_minor / 100)}</td>
-                    <td style={{ padding: 8 }}>{Math.floor(plan.price_annual_minor / 100)}</td>
-                    <td style={{ padding: 8 }}>{plan.trial_days} days</td>
-                    <td style={{ padding: 8 }}>{plan.status}</td>
+                    <td style={{ padding: "8px"}}>{plan.code}</td>
+                    <td style={{ padding: "8px"}}>{plan.name}</td>
+                    <td style={{ padding: "8px"}}>{Math.floor(plan.price_monthly_minor / 100)}</td>
+                    <td style={{ padding: "8px"}}>{Math.floor(plan.price_annual_minor / 100)}</td>
+                    <td style={{ padding: "8px"}}>{plan.trial_days} days</td>
+                    <td style={{ padding: "8px"}}>{plan.status}</td>
                   </tr>
                 ))}
               </tbody>

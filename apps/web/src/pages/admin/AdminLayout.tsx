@@ -6,6 +6,10 @@ import { describePlatformError, usePlatformAuth } from "../../lib/platformAuth";
 const NAV = [
   { to: "/", label: "Dashboard", permission: "platform.dashboard.view", end: true },
   { to: "/tenants", label: "Tenants", permission: "tenant.view" },
+  { to: "/onboarding", label: "Onboarding", permission: "tenant.view" },
+  { to: "/usage", label: "Usage & Limits", permission: "tenant.view" },
+  { to: "/support", label: "Support", permission: "tenant.view" },
+  { to: "/analytics", label: "Analytics", permission: "analytics.view" },
   { to: "/plans", label: "Plans", permission: "plan.view" },
   { to: "/subscriptions", label: "Subscriptions", permission: "subscription.view" },
   { to: "/invoices", label: "Invoices", permission: "invoice.view" },

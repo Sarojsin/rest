@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
 
@@ -76,12 +76,12 @@ export default function AdminPaymentsPage() {
               <tbody>
                 {items.map((pay: any) => (
                   <tr key={pay.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                    <td style={{ padding: 8 }}>{pay.reference}</td>
-                    <td style={{ padding: 8 }}>{pay.invoice_number || "—"}</td>
-                    <td style={{ padding: 8 }}>{pay.tenant_name || "—"}</td>
-                    <td style={{ padding: 8 }}>{Math.floor(pay.amount_minor / 100)} NPR</td>
-                    <td style={{ padding: 8 }}>{pay.method}</td>
-                    <td style={{ padding: 8 }}>{pay.status}</td>
+                    <td style={{ padding: "8px"}}>{pay.reference}</td>
+                    <td style={{ padding: "8px"}}>{pay.invoice_number || "—"}</td>
+                    <td style={{ padding: "8px"}}>{pay.tenant_name || "—"}</td>
+                    <td style={{ padding: "8px"}}>{Math.floor(pay.amount_minor / 100)} NPR</td>
+                    <td style={{ padding: "8px"}}>{pay.method}</td>
+                    <td style={{ padding: "8px"}}>{pay.status}</td>
                   </tr>
                 ))}
               </tbody>

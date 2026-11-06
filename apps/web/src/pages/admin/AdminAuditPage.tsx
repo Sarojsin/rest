@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
 
@@ -77,11 +77,11 @@ export default function AdminAuditPage() {
               <tbody>
                 {items.map((entry: any) => (
                   <tr key={entry.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                    <td style={{ padding: 8 }}>{entry.action}</td>
-                    <td style={{ padding: 8 }}>{entry.actor_email || "—"}</td>
-                    <td style={{ padding: 8 }}>{entry.entity_type}</td>
-                    <td style={{ padding: 8 }}>{entry.tenant_id || "—"}</td>
-                    <td style={{ padding: 8 }}>{new Date(entry.created_at).toISOString().slice(0, 10)}</td>
+                    <td style={{ padding: "8px"}}>{entry.action}</td>
+                    <td style={{ padding: "8px"}}>{entry.actor_email || "—"}</td>
+                    <td style={{ padding: "8px"}}>{entry.entity_type}</td>
+                    <td style={{ padding: "8px"}}>{entry.tenant_id || "—"}</td>
+                    <td style={{ padding: "8px"}}>{new Date(entry.created_at).toISOString().slice(0, 10)}</td>
                   </tr>
                 ))}
               </tbody>

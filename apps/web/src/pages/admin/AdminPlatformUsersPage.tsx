@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
 
@@ -88,12 +88,12 @@ export default function AdminPlatformUsersPage() {
               <tbody>
                 {items.map((user: any) => (
                   <tr key={user.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                    <td style={{ padding: 8 }}>{user.email}</td>
-                    <td style={{ padding: 8 }}>{user.role}</td>
-                    <td style={{ padding: 8 }}>{user.status}</td>
-                    <td style={{ padding: 8 }}>{user.mfa_enabled ? "Yes" : "No"}</td>
-                    <td style={{ padding: 8 }}>{user.recovery_codes_remaining || 0}</td>
-                    <td style={{ padding: 8 }}>{user.last_auth_at ? new Date(user.last_auth_at).toISOString().slice(0, 10) : "—"}</td>
+                    <td style={{ padding: "8px"}}>{user.email}</td>
+                    <td style={{ padding: "8px"}}>{user.role}</td>
+                    <td style={{ padding: "8px"}}>{user.status}</td>
+                    <td style={{ padding: "8px"}}>{user.mfa_enabled ? "Yes" : "No"}</td>
+                    <td style={{ padding: "8px"}}>{user.recovery_codes_remaining || 0}</td>
+                    <td style={{ padding: "8px"}}>{user.last_auth_at ? new Date(user.last_auth_at).toISOString().slice(0, 10) : "—"}</td>
                   </tr>
                 ))}
               </tbody>

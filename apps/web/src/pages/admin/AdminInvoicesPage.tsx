@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
 
@@ -76,12 +76,12 @@ export default function AdminInvoicesPage() {
               <tbody>
                 {items.map((inv: any) => (
                   <tr key={inv.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                    <td style={{ padding: 8 }}>{inv.invoice_number}</td>
-                    <td style={{ padding: 8 }}>{inv.tenant_name || "—"}</td>
-                    <td style={{ padding: 8 }}>{inv.plan_code || "—"}</td>
-                    <td style={{ padding: 8 }}>{inv.status}</td>
-                    <td style={{ padding: 8 }}>{Math.floor(inv.total_minor / 100)} NPR</td>
-                    <td style={{ padding: 8 }}>{new Date(inv.due_at).toISOString().slice(0, 10)}</td>
+                    <td style={{ padding: "8px"}}>{inv.invoice_number}</td>
+                    <td style={{ padding: "8px"}}>{inv.tenant_name || "—"}</td>
+                    <td style={{ padding: "8px"}}>{inv.plan_code || "—"}</td>
+                    <td style={{ padding: "8px"}}>{inv.status}</td>
+                    <td style={{ padding: "8px"}}>{Math.floor(inv.total_minor / 100)} NPR</td>
+                    <td style={{ padding: "8px"}}>{new Date(inv.due_at).toISOString().slice(0, 10)}</td>
                   </tr>
                 ))}
               </tbody>
