@@ -173,7 +173,7 @@ export default function AdminSettingsPage() {
                     style={{ width: 200, height: 200, display: "block", margin: "0 auto 12px" }}
                   />
                   <code className="pf-code" style={{ display: "block", marginBottom: 8 }}>{mfaSecret}</code>
-                  <p className="pf-muted pf-mono" style={{ fontSize: 11, margin: 0 }}>
+                  <p className="pf-muted pf-mono" style={{ fontSize: 11, margin: "0"}}>
                     Secret key: {mfaSecret}
                   </p>
                 </div>
@@ -276,8 +276,8 @@ export default function AdminSettingsPage() {
             <tbody>
               {settings.items.map((item: any) => (
                 <tr key={item.key} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                  <td style={{ padding: 8 }}>{item.key}</td>
-                  <td style={{ padding: 8 }}>
+                  <td style={{ padding: "8px"}}>{item.key}</td>
+                  <td style={{ padding: "8px"}}>
                     <input
                       type="text"
                       value={String(item.value)}
@@ -286,8 +286,8 @@ export default function AdminSettingsPage() {
                       disabled
                     />
                   </td>
-                  <td style={{ padding: 8 }}>{item.type}</td>
-                  <td style={{ padding: 8 }}>{item.description}</td>
+                  <td style={{ padding: "8px"}}>{item.type}</td>
+                  <td style={{ padding: "8px"}}>{item.description}</td>
                 </tr>
               ))}
             </tbody>

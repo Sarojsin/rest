@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
 
@@ -59,11 +59,11 @@ export default function AdminRefundsPage() {
               <tbody>
                 {items.map((ref: any) => (
                   <tr key={ref.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                    <td style={{ padding: 8 }}>{ref.reference}</td>
-                    <td style={{ padding: 8 }}>{ref.tenant_name || "—"}</td>
-                    <td style={{ padding: 8 }}>{Math.floor(ref.amount_minor / 100)} NPR</td>
-                    <td style={{ padding: 8 }}>{ref.status}</td>
-                    <td style={{ padding: 8 }}>{ref.refund_approved_by_admin_id ? "Yes" : "Pending"}</td>
+                    <td style={{ padding: "8px"}}>{ref.reference}</td>
+                    <td style={{ padding: "8px"}}>{ref.tenant_name || "—"}</td>
+                    <td style={{ padding: "8px"}}>{Math.floor(ref.amount_minor / 100)} NPR</td>
+                    <td style={{ padding: "8px"}}>{ref.status}</td>
+                    <td style={{ padding: "8px"}}>{ref.refund_approved_by_admin_id ? "Yes" : "Pending"}</td>
                   </tr>
                 ))}
               </tbody>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
@@ -83,11 +83,11 @@ export default function AdminSubscriptionsPage() {
               <tbody>
                 {items.map((sub: any) => (
                   <tr key={sub.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                    <td style={{ padding: 8 }}>{sub.tenant_name || "—"}</td>
-                    <td style={{ padding: 8 }}>{sub.plan_name || "—"}</td>
-                    <td style={{ padding: 8 }}>{sub.status}</td>
-                    <td style={{ padding: 8 }}>{sub.trial_ends_at ? new Date(sub.trial_ends_at).toISOString().slice(0, 10) : "—"}</td>
-                    <td style={{ padding: 8 }}><button onClick={() => navigate(`/admin/subscriptions/${sub.id}`)}>View</button></td>
+                    <td style={{ padding: "8px"}}>{sub.tenant_name || "—"}</td>
+                    <td style={{ padding: "8px"}}>{sub.plan_name || "—"}</td>
+                    <td style={{ padding: "8px"}}>{sub.status}</td>
+                    <td style={{ padding: "8px"}}>{sub.trial_ends_at ? new Date(sub.trial_ends_at).toISOString().slice(0, 10) : "—"}</td>
+                    <td style={{ padding: "8px"}}><button onClick={() => navigate(`/admin/subscriptions/${sub.id}`)}>View</button></td>
                   </tr>
                 ))}
               </tbody>

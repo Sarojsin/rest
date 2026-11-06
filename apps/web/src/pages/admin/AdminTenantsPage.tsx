@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
@@ -114,12 +114,12 @@ export default function AdminTenantsPage() {
               <tbody>
                 {items.map((t: any) => (
                   <tr key={t.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                    <td style={{ padding: 8 }}>{t.name}</td>
-                    <td style={{ padding: 8 }}>{t.slug}</td>
-                    <td style={{ padding: 8 }}>{t.plan_code}</td>
-                    <td style={{ padding: 8 }}>{t.subscription_status}</td>
-                    <td style={{ padding: 8 }}>{t.staff}</td>
-                    <td style={{ padding: 8 }}>{t.created_at}</td>
+                    <td style={{ padding: "8px"}}>{t.name}</td>
+                    <td style={{ padding: "8px"}}>{t.slug}</td>
+                    <td style={{ padding: "8px"}}>{t.plan_code}</td>
+                    <td style={{ padding: "8px"}}>{t.subscription_status}</td>
+                    <td style={{ padding: "8px"}}>{t.staff}</td>
+                    <td style={{ padding: "8px"}}>{t.created_at}</td>
                   </tr>
                 ))}
               </tbody>

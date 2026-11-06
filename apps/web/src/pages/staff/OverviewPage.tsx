@@ -11,6 +11,7 @@ import {
 import { useAuth } from "../../lib/auth";
 import { PageHeader } from "../../components/PageHeader";
 import { StatusBadge } from "../../components/StatusBadge";
+import OnboardingChecklist from "./OnboardingChecklist";
 
 const POLL_MS = 15_000;
 
@@ -290,6 +291,8 @@ export default function OverviewPage() {
               </div>
             </div>
           </section>
+
+          <OnboardingChecklist />
 
           {canReadReports && report ? (
             <section className="section-card" aria-labelledby="sales-title">
