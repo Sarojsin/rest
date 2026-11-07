@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { platformFetch } from "../../lib/platformApi";
 import { usePlatformAuth } from "../../lib/platformAuth";
 
@@ -76,9 +76,7 @@ export default function AdminTrialLifecyclePage() {
   async function loadExpiringTrials() {
     try {
       const res = await platformFetch("/api/platform/trials/expiring?days_ahead=7");
-      if (!res.ok) throw new Error("Failed to load expiring trials");
-      const data = await res.json();
-      setExpiringTrials(data.trials || []);
+      setExpiringTrials(res.trials || []);
     } catch {
       // Silently fail - not critical
     }
@@ -87,18 +85,14 @@ export default function AdminTrialLifecyclePage() {
   async function extendTrial(subId: string, days: number) {
     setExtending(subId);
     try {
-      const res = await platformFetch(
+      const data = await platformFetch(
         `/api/platform/subscriptions/${subId}/extend-trial`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ days, reason: "Trial extension via admin console" }),
+          body: { days, reason: "Trial extension via admin console" },
         }
       );
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to extend trial");
-      }
       await loadTrialStatus();
       setNewDays("");
     } catch (err: any) {
@@ -117,15 +111,14 @@ export default function AdminTrialLifecyclePage() {
       return;
     setExpiring(subId);
     try {
-      const res = await platformFetch(
+      const data = await platformFetch(
         `/api/platform/subscriptions/${subId}/expire-trial`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason: "Manual expiration via admin console" }),
+          body: { reason: "Manual expiration via admin console" },
         }
       );
-      if (!res.ok) throw new Error("Failed to expire trial");
       await loadTrialStatus();
       await loadExpiringTrials();
     } catch (err: any) {
@@ -348,3 +341,5 @@ export default function AdminTrialLifecyclePage() {
     </div>
   );
 }
+
+

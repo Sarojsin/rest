@@ -37,8 +37,8 @@ export default function AdminSupportPage() {
     try {
       let url = `/api/platform/support/tickets?page=${page}&page_size=${pageSize}`;
       if (filterStatus) url += `&status=${filterStatus}`;
-      const res: Response = await platformFetch(url);
-      const data = await res.json();
+      const data = await platformFetch(url);
+      
       setTickets(data.items || []);
       setTotal(data.total || 0);
     } catch (err: any) {
@@ -282,3 +282,6 @@ export default function AdminSupportPage() {
     </div>
   );
 }
+
+
+

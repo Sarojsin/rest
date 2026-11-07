@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import { usePlatformAuth } from "../../lib/platformAuth";
@@ -23,8 +23,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     async function loadSettings() {
       const url = "/api/platform/settings";
-      const res: Response = await platformFetch(url);
-      const data = await res.json();
+      const data = await platformFetch(url);
       setSettings(data);
       setLoading(false);
     }
@@ -39,19 +38,14 @@ export default function AdminSettingsPage() {
     setMfaError(null);
     setMfaActionBusy(true);
     try {
-      const res: Response = await platformFetch("/api/platform/mfa/enroll/start-session", {
+      const res = await platformFetch("/api/platform/mfa/enroll/start-session", {
         method: "POST",
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setMfaError(err.detail || "Failed to start enrollment");
-        return;
-      }
-      const data = await res.json();
-      setMfaSecret(data.secret);
+      
+      setMfaSecret(res.secret);
 
       // Generate QR code from provisioning URI
-      QRCode.toDataURL(data.provisioning_uri, { width: 260 }, (_err, url) => {
+      QRCode.toDataURL(res.provisioning_uri, { width: 260 }, (_err, url) => {
         if (url) setMfaQrDataUrl(url);
       });
 
@@ -67,17 +61,12 @@ export default function AdminSettingsPage() {
     setMfaError(null);
     setMfaActionBusy(true);
     try {
-      const res: Response = await platformFetch("/api/platform/mfa/enroll/verify-session", {
+      const res = await platformFetch("/api/platform/mfa/enroll/verify-session", {
         method: "POST",
-        body: JSON.stringify({ code: mfaCode.trim() }),
+        body: { code: mfaCode.trim() },
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setMfaError(err.detail || "Invalid code");
-        return;
-      }
-      const data = await res.json();
-      setMfaRecoveryCodes(data.recovery_codes ?? []);
+      
+      setMfaRecoveryCodes(res.recovery_codes ?? []);
       setMfaStage("codes");
     } catch (err) {
       setMfaError("Failed to verify code");
@@ -301,3 +290,5 @@ export default function AdminSettingsPage() {
     </div>
   );
 }
+
+

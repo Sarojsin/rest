@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
@@ -20,8 +20,8 @@ export default function AdminSubscriptionsPage() {
       let url = `/api/platform/subscriptions?page=${page}&page_size=${pageSize}`;
       if (statusFilter) url += "&status=" + statusFilter;
       if (planFilter) url += "&plan=" + planFilter;
-      const res: Response = await platformFetch(url);
-      const data = await res.json();
+      const data = await platformFetch(url);
+      
       setItems(data.items || []);
       setTotal(data.total || 0);
       setLoading(false);
@@ -106,3 +106,5 @@ export default function AdminSubscriptionsPage() {
     </div>
   );
 }
+
+

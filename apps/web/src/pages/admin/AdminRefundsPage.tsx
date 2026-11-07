@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
 
@@ -14,8 +14,8 @@ export default function AdminRefundsPage() {
   useEffect(() => {
     async function loadRefunds() {
       const url = `/api/platform/refunds?page=${page}&page_size=${pageSize}`;
-      const res: Response = await platformFetch(url);
-      const data = await res.json();
+      const data = await platformFetch(url);
+      
       setItems(data.items || []);
       setTotal(data.total || 0);
       setLoading(false);
@@ -82,3 +82,5 @@ export default function AdminRefundsPage() {
     </div>
   );
 }
+
+

@@ -41,7 +41,7 @@ export default function RegisterSuccessPage() {
             `/api/platform/self-service/registrations/${registrationId}`
           );
           if (!res.ok) throw new Error("Failed to load registration");
-          const data = await res.json();
+          
           setRegistration(data);
         } catch (err: any) {
           console.error("Failed to load registration:", err);
@@ -197,3 +197,5 @@ export default function RegisterSuccessPage() {
     </div>
   );
 }
+
+
