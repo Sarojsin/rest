@@ -43,6 +43,7 @@ SETTING_DEFINITIONS: dict[str, tuple[type, Any, str]] = {
     "platform.step_up_minutes": (int, 5, "Step-up validity window"),
     "platform.login_max_attempts": (int, 5, "Login attempts before lockout"),
     "platform.login_lockout_minutes": (int, 15, "Login lockout duration"),
+    "platform.self_service_enabled": (bool, True, "Enable self-service registration"),
 }
 
 INT_BOUNDS: dict[str, tuple[int, int]] = {
