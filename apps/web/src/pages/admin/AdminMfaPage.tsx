@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import type { MfaEnrollment } from "../../lib/platformApi";
@@ -9,7 +9,7 @@ import { describePlatformError, usePlatformAuth } from "../../lib/platformAuth";
  * page restarts sign-in, which is intentional (no secret in storage).
  */
 export default function AdminMfaPage() {
-  const { challenge, verifyMfa, startEnrollment, verifyEnrollment, clearChallenge } =
+  const { challenge, verifyMfa, startEnrollment, verifyEnrollment, clearChallenge, admin } =
     usePlatformAuth();
 
   const navigate = useNavigate();
@@ -22,6 +22,7 @@ export default function AdminMfaPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  if (admin) return <Navigate to="/" replace />;
   if (!challenge) return <Navigate to="/login" replace />;
 
   const enrolling = challenge.enrollment_required;
@@ -200,3 +201,4 @@ export default function AdminMfaPage() {
     </div>
   );
 }
+

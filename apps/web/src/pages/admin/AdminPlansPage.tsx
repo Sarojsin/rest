@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
 
@@ -13,8 +13,8 @@ export default function AdminPlansPage() {
   useEffect(() => {
     async function loadPlans() {
       const url = `/api/platform/plans?page=${page}&page_size=${pageSize}`;
-      const res: Response = await platformFetch(url);
-      const data = await res.json();
+      const data = await platformFetch(url);
+      
       setItems(data.items || []);
       setLoading(false);
     }
@@ -82,3 +82,5 @@ export default function AdminPlansPage() {
     </div>
   );
 }
+
+

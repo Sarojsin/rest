@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { platformFetch } from "../../lib/platformApi";
 import { usePlatformAuth } from "../../lib/platformAuth";
@@ -59,7 +59,7 @@ export default function AdminPlanVersionsPage() {
       setLoading(true);
       const res = await platformFetch(`/api/platform/plans/${plan_id}`);
       if (!res.ok) throw new Error("Failed to load plan");
-      const data = await res.json();
+      
       setPlan(data);
       setVersions(data.versions || []);
     } catch (err: any) {
@@ -72,25 +72,21 @@ export default function AdminPlanVersionsPage() {
   async function createVersion() {
     setCreating(true);
     try {
-      const res = await platformFetch(
+      const data = await platformFetch(
         `/api/platform/plans/${plan_id}/versions`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          body: {
             price_monthly_minor: parseInt(newVersion.price_monthly_minor, 10),
             price_annual_minor: parseInt(newVersion.price_annual_minor, 10),
             currency_code: newVersion.currency_code,
             trial_days: parseInt(newVersion.trial_days, 10),
             effective_from: newVersion.effective_from || undefined,
             reason: newVersion.reason,
-          }),
+          },
         }
       );
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to create version");
-      }
       setShowCreateVersion(false);
       setNewVersion({
         price_monthly_minor: "",
@@ -111,15 +107,14 @@ export default function AdminPlanVersionsPage() {
   async function publishVersion(versionId: string) {
     if (!confirm("Publish this plan version? This will make it the active version for new subscriptions.")) return;
     try {
-      const res = await platformFetch(
+      const data = await platformFetch(
         `/api/platform/plans/versions/${versionId}/publish`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason: "Published via admin console" }),
+          body: { reason: "Published via admin console" },
         }
       );
-      if (!res.ok) throw new Error("Failed to publish version");
       await loadPlan();
     } catch (err: any) {
       setError(err.message || "Failed to publish version");
@@ -128,15 +123,14 @@ export default function AdminPlanVersionsPage() {
 
   async function addFeature(versionId: string, featureKey: string, enabled: boolean) {
     try {
-      const res = await platformFetch(
+      const data = await platformFetch(
         `/api/platform/plans/versions/${versionId}/features`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ feature_key: featureKey, enabled, reason: "Added via admin console" }),
+          body: { feature_key: featureKey, enabled, reason: "Added via admin console" },
         }
       );
-      if (!res.ok) throw new Error("Failed to add feature");
       await loadPlan();
     } catch (err: any) {
       setError(err.message || "Failed to add feature");
@@ -145,15 +139,14 @@ export default function AdminPlanVersionsPage() {
 
   async function addLimit(versionId: string, limitKey: string, limitValue: number) {
     try {
-      const res = await platformFetch(
+      const data = await platformFetch(
         `/api/platform/plans/versions/${versionId}/limits`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ limit_key: limitKey, limit_value: limitValue, reason: "Added via admin console" }),
+          body: { limit_key: limitKey, limit_value: limitValue, reason: "Added via admin console" },
         }
       );
-      if (!res.ok) throw new Error("Failed to add limit");
       await loadPlan();
     } catch (err: any) {
       setError(err.message || "Failed to add limit");
@@ -425,3 +418,5 @@ export default function AdminPlanVersionsPage() {
     </div>
   );
 }
+
+

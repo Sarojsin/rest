@@ -43,9 +43,7 @@ export default function PublicRegisterPage() {
   useEffect(() => {
     async function loadPlans() {
       try {
-        const res = await platformFetch("/api/platform/public/plans");
-        if (!res.ok) throw new Error("Failed to load plans");
-        const data = await res.json();
+        const data = await platformFetch("/api/platform/public/plans");
         setPlans(data.items || []);
         // Auto-select plan from URL param
         const planCode = searchParams.get("plan");
@@ -71,10 +69,10 @@ export default function PublicRegisterPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await platformFetch("/api/platform/public/register", {
+      const data = await platformFetch("/api/platform/public/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           restaurant_name: form.restaurant_name,
           restaurant_slug: form.restaurant_slug,
           owner_email: form.owner_email,
@@ -89,13 +87,8 @@ export default function PublicRegisterPage() {
           currency_code: form.currency_code,
           source: form.source,
           reason: form.reason,
-        }),
+        },
       });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || "Registration failed");
-      }
-      const data = await res.json();
       if (data.status === "APPROVED" && data.invitation_token) {
         // Auto-approved - show invitation page
         navigate(`/admin/register-success?token=${data.invitation_token}&restaurant=${data.restaurant_id}`);
@@ -342,3 +335,5 @@ export default function PublicRegisterPage() {
     </div>
   );
 }
+
+

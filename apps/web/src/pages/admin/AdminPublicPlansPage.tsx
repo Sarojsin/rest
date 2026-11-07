@@ -25,9 +25,7 @@ export default function PublicPlansPage() {
   useEffect(() => {
     async function loadPlans() {
       try {
-        const res = await platformFetch("/api/platform/public/plans");
-        if (!res.ok) throw new Error("Failed to load plans");
-        const data = await res.json();
+        const data = await platformFetch<{ items: Plan[] }>("/api/platform/public/plans");
         setPlans(data.items || []);
       } catch (err: any) {
         setError(err.message || "Failed to load plans");
@@ -140,3 +138,4 @@ export default function PublicPlansPage() {
     </div>
   );
 }
+

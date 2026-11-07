@@ -19,7 +19,7 @@ export default function AdminOnboardingPage() {
         const res: Response = await platformFetch(
           `/api/platform/onboarding?page=${page}&page_size=${pageSize}`
         );
-        const data = await res.json();
+        
         setItems(data.items || []);
         setTotal(data.total || 0);
       } catch (err: any) {
@@ -146,3 +146,6 @@ export default function AdminOnboardingPage() {
     </div>
   );
 }
+
+
+

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
 
@@ -19,8 +19,8 @@ export default function AdminPlatformUsersPage() {
       let url = `/api/platform/platform-users?page=${page}&page_size=${pageSize}`;
       if (roleFilter) url += "&role=" + roleFilter;
       if (statusFilter) url += "&status=" + statusFilter;
-      const res: Response = await platformFetch(url);
-      const data = await res.json();
+      const data = await platformFetch(url);
+      
       setItems(data.items || []);
       setTotal(data.total || 0);
       setActiveSuperadmins(data.active_superadmins || 0);
@@ -115,3 +115,5 @@ export default function AdminPlatformUsersPage() {
     </div>
   );
 }
+
+

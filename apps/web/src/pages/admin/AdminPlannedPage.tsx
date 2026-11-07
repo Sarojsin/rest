@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import React, { useLocation } from "react-router-dom";
 
 const TITLES: Record<string, string> = {
   "/tenants": "Tenants",
@@ -36,3 +36,5 @@ export default function AdminPlannedPage() {
     </>
   );
 }
+
+
