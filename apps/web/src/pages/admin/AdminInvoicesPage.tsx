@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
 
@@ -16,8 +16,7 @@ export default function AdminInvoicesPage() {
     async function loadInvoices() {
       let url = `/api/platform/invoices?page=${page}&page_size=${pageSize}`;
       if (statusFilter) url += "&status=" + statusFilter;
-      const res: Response = await platformFetch(url);
-      const data = await res.json();
+      const data = await platformFetch(url);
       setItems(data.items || []);
       setTotal(data.total || 0);
       setLoading(false);
@@ -100,3 +99,4 @@ export default function AdminInvoicesPage() {
     </div>
   );
 }
+

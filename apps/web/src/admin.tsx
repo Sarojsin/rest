@@ -54,6 +54,8 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
           <Route path="/plans" element={<AdminPublicPlansPage />} />
           <Route path="/register" element={<AdminPublicRegisterPage />} />
           <Route path="/register-success" element={<AdminRegisterSuccessPage />} />
+          <Route path="/login" element={<AdminLoginPage />} />
+          <Route path="/mfa" element={<AdminMfaPage />} />
 
           <Route element={<AdminGuard />}>
             <Route element={<AdminLayout />}>
@@ -63,6 +65,14 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 element={
                   <RequirePermission permission="tenant.view">
                     <AdminTenantsPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="/tenants/create"
+                element={
+                  <RequirePermission permission="tenant.create">
+                    <Navigate to="/onboarding" replace />
                   </RequirePermission>
                 }
               />

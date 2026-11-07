@@ -1,4 +1,4 @@
-import { usePlatformAuth } from "../../lib/platformAuth";
+import React, { usePlatformAuth } from "../../lib/platformAuth";
 
 /**
  * PA-0 dashboard placeholder.
@@ -63,3 +63,5 @@ export default function AdminDashboardPage() {
     </>
   );
 }
+
+

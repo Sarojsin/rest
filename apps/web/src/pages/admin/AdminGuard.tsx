@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import React, { Navigate, Outlet, useLocation } from "react-router-dom";
 import { usePlatformAuth } from "../../lib/platformAuth";
 
 export function AdminForbidden() {
@@ -63,3 +63,5 @@ export default function AdminGuard() {
 
   return <Outlet />;
 }
+
+

@@ -24,8 +24,7 @@ export default function AdminAnalyticsPage() {
       setLoading(true);
       setError(null);
       try {
-        const res: Response = await platformFetch("/api/platform/analytics/summary");
-        const data = await res.json();
+        const data = await platformFetch("/api/platform/analytics/summary");
         setSummary(data);
       } catch (err: any) {
         setError(err.detail || "Failed to load analytics.");
@@ -151,3 +150,5 @@ export default function AdminAnalyticsPage() {
     </div>
   );
 }
+
+

@@ -129,8 +129,8 @@ export function PlatformAuthProvider({ children }: { children: React.ReactNode }
         method: "POST",
         body: { ticket: challenge.ticket, code },
       });
-      setChallenge(null);
       await loadMe();
+      setChallenge(null);
       return result;
     },
     [challenge, loadMe]
