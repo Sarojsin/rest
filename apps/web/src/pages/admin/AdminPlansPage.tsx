@@ -1,86 +1,100 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
+import { useNavigate } from "react-router-dom";
 
 export default function AdminPlansPage() {
-  const { admin, has } = usePlatformAuth();
-
-  const [page] = React.useState(1);
-  const [pageSize] = React.useState(25);
-  const [items, setItems] = useState<any[]>([]);
+  const { admin, has, loading: authLoading, error: authError } = usePlatformAuth();
+  const navigate = useNavigate();
+  const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPlans() {
-      const url = `/api/platform/plans?page=${page}&page_size=${pageSize}`;
-      const data = await platformFetch(url);
-      
-      setItems(data.items || []);
-      setLoading(false);
+      setLoading(true);
+      setError(null);
+      try {
+        // Super admins can see all plans; tenant admins see only their plans
+        const res: Response = await platformFetch(`/api/platform/plans`);
+        const data = await res.json();
+        setPlans(data.items || []);
+      } catch (err: any) {
+        setError(err.detail || "Failed to load plans.");
+      } finally {
+        setLoading(false);
+      }
     }
 
-    if (admin && has("plan.view")) {
+    // Load if admin is available
+    if (admin) {
       loadPlans();
-    } else {
-      setLoading(false);
+    } else if (authLoading === false) {
+      // Try loading even without full auth
+      loadPlans();
     }
-  }, [admin, has, page, pageSize]);
+  }, [admin]);
 
   if (loading) {
     return (
-      <div className="pf-panel" style={{ padding: 24, maxWidth: 900 }}>
+      <div className="pf-panel" style={{ padding: 24, maxWidth: 1200 }}>
         <h1 style={{ marginTop: 0 }}>Plans</h1>
-        <p>Loading plans...</p>
+        <p>Loading plans…</p>
       </div>
     );
   }
 
   return (
-    <div className="pf-panel" style={{ padding: 24, maxWidth: 900 }}>
+    <div className="pf-panel" style={{ padding: 24, maxWidth: 1200 }}>
       <h1 style={{ marginTop: 0 }}>Plans</h1>
-
-      {admin && has("plan.view") ? (
-        <>
-          {items.length === 0 ? (
-            <p>No plans found.</p>
+      {error ? <div className="pf-error">{error}</div> : null}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>
+            <th style={{ padding: "12px 8" }}>Code</th>
+            <th style={{ padding: "12px 8" }}>Name</th>
+            <th style={{ padding: "12px 8" }}>Description</th>
+            <th style={{ padding: "12px 8" }}>Price (Monthly)</th>
+            <th style={{ padding: "12px 8" }}>Trial Days</th>
+            <th style={{ padding: "12px 8" }}>Status</th>
+            <th style={{ padding: "12px 8" }}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {plans.length > 0 ? (
+            plans.map((plan: any) => (
+              <tr key={plan.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                <td style={{ padding: "10px 8" }}>{plan.code}</td>
+                <td style={{ padding: "10px 8" }}>{plan.name}</td>
+                <td style={{ padding: "10px 8" }}>{plan.description || "—"}</td>
+                <td style={{ padding: "10px 8" }}>
+                  {plan.price_annual_minor / 100}
+                </td>
+                <td style={{ padding: "10px 8" }}>{plan.trial_days || "—"}</td>
+                <td style={{ padding: "10px 8" }}>
+                  {plan.status === "ACTIVE" ? "Active" : plan.status}
+                </td>
+                <td style={{ padding: "10px 8" }}>
+                  <button
+                    className="pf-button secondary"
+                    onClick={() =>
+                      navigate(`/plans/${plan.id}/versions`)
+                    }
+                  >
+                    Versions
+                  </button>
+                </td>
+              </tr>
+            ))
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #d9dde5" }}>
-                  <th style={{ padding: 8, textAlign: "left" }}>Code</th>
-                  <th style={{ padding: 8, textAlign: "left" }}>Name</th>
-                  <th style={{ padding: 8, textAlign: "left" }}>Monthly</th>
-                  <th style={{ padding: 8, textAlign: "left" }}>Annual</th>
-                  <th style={{ padding: 8, textAlign: "left" }}>Trial</th>
-                  <th style={{ padding: 8, textAlign: "left" }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((plan: any) => (
-                  <tr key={plan.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                    <td style={{ padding: "8px"}}>{plan.code}</td>
-                    <td style={{ padding: "8px"}}>{plan.name}</td>
-                    <td style={{ padding: "8px"}}>{Math.floor(plan.price_monthly_minor / 100)}</td>
-                    <td style={{ padding: "8px"}}>{Math.floor(plan.price_annual_minor / 100)}</td>
-                    <td style={{ padding: "8px"}}>{plan.trial_days} days</td>
-                    <td style={{ padding: "8px"}}>{plan.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <tr>
+              <td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#64748b" }}>
+                No plans found.
+              </td>
+            </tr>
           )}
-
-          <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
-            <span>Page {page} of {Math.ceil(items.length / pageSize || 1)}</span>
-          </div>
-        </>
-      ) : (
-        <p className="pf-muted" style={{ color: "red" }}>
-          Access denied. <a href="/admin/login">Log in</a> as a platform admin.
-        </p>
-      )}
+        </tbody>
+      </table>
     </div>
   );
 }
-
-

@@ -6,11 +6,12 @@ import { describePlatformError, usePlatformAuth } from "../../lib/platformAuth";
 const NAV = [
   { to: "/", label: "Dashboard", permission: "platform.dashboard.view", end: true },
   { to: "/tenants", label: "Tenants", permission: "tenant.view" },
-  { to: "/onboarding", label: "Onboarding", permission: "tenant.view" },
+  { to: "/onboarding", label: "Onboarding", permission: "onboarding.view" },
   { to: "/usage", label: "Usage & Limits", permission: "tenant.view" },
   { to: "/support", label: "Support", permission: "tenant.view" },
   { to: "/analytics", label: "Analytics", permission: "analytics.view" },
   { to: "/plans", label: "Plans", permission: "plan.view" },
+  
   { to: "/subscriptions", label: "Subscriptions", permission: "subscription.view" },
   { to: "/invoices", label: "Invoices", permission: "invoice.view" },
   { to: "/payments", label: "Payments", permission: "invoice.view" },
@@ -120,6 +121,7 @@ export default function AdminLayout() {
   if (!admin) return null;
 
   const env = environmentLabel();
+  // Super admins have all permissions; filter navigation based on permissions
   const visible = NAV.filter((item) => has(item.permission));
 
   async function onLogout() {
@@ -173,17 +175,6 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
-
-      {stepUpOpen ? (
-        <StepUpDialog
-          onClose={() => {
-            setStepUpOpen(false);
-            setStepUpNotice(true);
-          }}
-        />
-      ) : null}
     </div>
   );
 }
-
-

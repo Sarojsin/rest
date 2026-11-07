@@ -4,6 +4,7 @@ import { AuthProvider } from "./lib/auth";
 import { ThemeProvider } from "./styles/ThemeProvider";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import AcceptInvitationPage from "./pages/staff/AcceptInvitationPage";
 import CustomerMenuPage from "./pages/CustomerMenuPage";
 import CustomerStatusPage from "./pages/CustomerStatusPage";
 import StaffLayout from "./pages/staff/StaffLayout";
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/t/:qrToken" element={<CustomerMenuPage />} />
           <Route path="/status/:statusToken" element={<CustomerStatusPage />} />
+          <Route path="/auth/invitations/:token" element={<AcceptInvitationPage />} />
 
           <Route path="/staff" element={<StaffLayout />}>
             <Route index element={<OverviewPage />} />
@@ -70,7 +72,9 @@ export default function App() {
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Route path="/admin/tenants/create" element={<AdminTenantCreatePage />} />
+  <Route path="/admin/diagnostics" element={<AdminDiagnosticsPage />} />
+</Routes>
       </AuthProvider>
     </ThemeProvider>
   );

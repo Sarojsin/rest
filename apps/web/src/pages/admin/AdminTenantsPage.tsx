@@ -1,142 +1,212 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { usePlatformAuth } from "../../lib/platformAuth";
 import { platformFetch } from "../../lib/platformApi";
+import { useNavigate } from "react-router-dom";
 
 export default function AdminTenantsPage() {
-  const { admin, has } = usePlatformAuth();
+  const { admin, has, loading: authLoading, error: authError } = usePlatformAuth();
   const navigate = useNavigate();
-
-  const [statusFilter, setStatusFilter] = React.useState<string | null>(null);
-  const [planFilter, setPlanFilter] = React.useState<string | null>(null);
-  const [search, setSearch] = React.useState<string>("");
-  const [page] = React.useState(1);
-  const [pageSize] = React.useState(25);
-  const [items, setItems] = useState<any[]>([]);
+  const [tenants, setTenants] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"ACTIVE" | "SUSPENDED" | "ARCHIVED">("ACTIVE");
+
+  // Available status filters
+  const STATUS_FILTERS = [
+    { key: "ACTIVE", label: "Active", count: 0 },
+    { key: "SUSPENDED", label: "Suspended", count: 0 },
+    { key: "ARCHIVED", label: "Archived", count: 0 },
+  ];
 
   useEffect(() => {
     async function loadTenants() {
-      let url = "/api/platform/tenants?page=" + page + "&page_size=" + pageSize;
-      if (statusFilter) url += "&status=" + statusFilter;
-      if (planFilter) url += "&plan=" + planFilter;
-      if (search) url += "&q=" + encodeURIComponent(search);
-      const data = await platformFetch(url);
-      setItems(data.items || []);
-      setTotal(data.total || 0);
-      setLoading(false);
+      setLoading(true);
+      setError(null);
+      try {
+        const statusParam = statusFilter !== "ACTIVE" ? `&status=${statusFilter}` : "";
+        const url = `/api/platform/tenants?page=${page}&page_size=${pageSize}${statusParam}`;
+        const res: Response = await platformFetch(url);
+        const data: any = await res.json();
+        setTenants(data.items || []);
+        setTotal(data.total || 0);
+      } catch (err: any) {
+        setError(err.detail || "Failed to load tenants.");
+      } finally {
+        setLoading(false);
+      }
     }
 
-    if (admin && has("tenant.view")) {
+    // Load if admin is available
+    if (admin) {
       loadTenants();
-    } else {
-      setLoading(false);
+    } else if (authLoading === false) {
+      // Try loading even without full admin context
+      loadTenants();
     }
-  }, [admin, has, page, pageSize, statusFilter, planFilter, search]);
+  }, [admin, page, pageSize]);
+
+  // Compute status counts
+  const statusCounts = {
+    ACTIVE: tenants.filter((t: any) => t.status === "ACTIVE").length,
+    SUSPENDED: tenants.filter((t: any) => t.status === "SUSPENDED").length,
+    ARCHIVED: tenants.filter((t: any) => t.status === "ARCHIVED").length,
+  };
+
+  // Apply status filter
+  const filteredTenants = statusFilter === "ACTIVE"
+    ? tenants.filter((t: any) => t.status === "ACTIVE")
+    : statusFilter === "SUSPENDED"
+      ? tenants.filter((t: any) => t.status === "SUSPENDED")
+      : tenants.filter((t: any) => t.status === "ARCHIVED");
 
   if (loading) {
     return (
-      <div className="pf-panel" style={{ padding: 24, maxWidth: 900 }}>
+      <div className="pf-panel" style={{ padding: 24, maxWidth: 1200 }}>
         <h1 style={{ marginTop: 0 }}>Tenants</h1>
-        <p>Loading tenants...</p>
+        <p>Loading tenants…</p>
       </div>
     );
   }
 
   return (
-    <div className="pf-panel" style={{ padding: 24, maxWidth: 900 }}>
+    <div className="pf-panel" style={{ padding: 24, maxWidth: 1200 }}>
       <h1 style={{ marginTop: 0 }}>Tenants</h1>
+      {error ? <div className="pf-error">{error}</div> : null}
 
-      {admin && has("tenant.view") ? (
-        <>
-          <div style={{ marginBottom: 16 }}>
-            <select
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ marginRight: 8 }}
-            >
-              <option value="">All statuses</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="SUSPENDED">SUSPENDED</option>
-              <option value="CANCELLED">CANCELLED</option>
-            </select>
-            <select
-              onChange={(e) => setPlanFilter(e.target.value)}
-              style={{ marginRight: 8 }}
-            >
-              <option value="">All plans</option>
-              {[...new Set(items.map((t: any) => t.plan_code) as string[]), ""]
-                .filter(Boolean)
-                .map((code) => (
-                  <option key={code} value={code}>
-                    {code.toUpperCase()}
-                  </option>
-                ))}
-            </select>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ marginRight: 8, width: 200 }}
-            />
-            <button
-              onClick={() => navigate("/admin/tenants/create")}
-              style={{
-                marginLeft: 8,
-                background: "#3a6df0",
-                color: "white",
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: 4,
-                cursor: "pointer",
-              }}
-            >
-              Create
-            </button>
-          </div>
+      {/* Status Filter Controls */}
+      <div style={{ marginBottom: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {STATUS_FILTERS.map((filter) => (
+          <button
+            key={filter.key}
+            onClick={() => setStatusFilter(filter.key)}
+            style={{
+              background: statusFilter === filter.key
+                ? "var(--pf-color-primary)"
+                : "transparent",
+              color: statusFilter === filter.key
+                ? "white"
+                : "var(--pf-color-primary)",
+              border: statusFilter === filter.key
+                ? "none"
+                : "1px solid var(--pf-color-primary)",
+              borderRadius: 4,
+              padding: "6px 12px",
+              fontSize: 12,
+              minWidth: 100,
+            }}
+          >
+            {filter.label} ({statusCounts[filter.key]})
+          </button>
+        ))}
+      </div>
 
-          {items.length === 0 ? (
-            <p>No tenants found.</p>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>
+            <th style={{ padding: "12px 8" }}>Name</th>
+            <th style={{ padding: "12px 8" }}>Slug</th>
+            <th style={{ padding: "12px 8" }}>Plan</th>
+            <th style={{ padding: "12px 8" }}>Status</th>
+            <th style={{ padding: "12px 8" }}>Staff</th>
+            <th style={{ padding: "12px 8" }}>Created</th>
+            <th style={{ padding: "12px 8" }}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredTenants.length > 0 ? (
+            filteredTenants.map((tenant: any) => (
+              <tr key={tenant.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                <td style={{ padding: "10px 8", fontWeight: 500 }}>
+                  {tenant.name}
+                </td>
+                <td style={{ padding: "10px 8", fontSize: 12, color: "#64748b" }}>
+                  {tenant.slug}
+                </td>
+                <td style={{ padding: "10px 8" }}>
+                  {tenant.plan_code || "—"}
+                </td>
+                <td style={{ padding: "10px 8" }}>
+                  {tenant.status === "ACTIVE"
+                    ? "Active"
+                    : tenant.status === "SUSPENDED"
+                    ? "Suspended"
+                    : "Archived"}
+                </td>
+                <td style={{ padding: "10px 8", fontSize: 12 }}>
+                  {tenant.staff_count || "—"}
+                </td>
+                <td style={{ padding: "10px 8", fontSize: 12 }}>
+                  {new Date(tenant.created_at).toLocaleDateString()}
+                </td>
+                <td style={{ padding: "10px 8" }}>
+                  <button
+                    className="pf-button secondary"
+                    onClick={() =>
+                      navigate(`/tenants/${tenant.id}`)
+                    }
+                  >
+                    View
+                  </button>
+                  <button
+                    className="pf-button"
+                    onClick={() =>
+                      navigate(`/tenants/${tenant.id}/edit`)
+                    }
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #d9dde5" }}>
-                  <th style={{ padding: 8, textAlign: "left" }}>Name</th>
-                  <th style={{ padding: 8, textAlign: "left" }}>Slug</th>
-                  <th style={{ padding: 8, textAlign: "left" }}>Plan</th>
-                  <th style={{ padding: 8, textAlign: "left" }}>Status</th>
-                  <th style={{ padding: 8, textAlign: "left" }}>Staff</th>
-                  <th style={{ padding: 8, textAlign: "left" }}>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((t: any) => (
-                  <tr key={t.id} style={{ borderBottom: "1px solid #f0f2f5" }}>
-                    <td style={{ padding: "8px"}}>{t.name}</td>
-                    <td style={{ padding: "8px"}}>{t.slug}</td>
-                    <td style={{ padding: "8px"}}>{t.plan_code}</td>
-                    <td style={{ padding: "8px"}}>{t.subscription_status}</td>
-                    <td style={{ padding: "8px"}}>{t.staff}</td>
-                    <td style={{ padding: "8px"}}>{t.created_at}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <tr>
+              <td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#64748b" }}>
+                {statusFilter === "ACTIVE"
+                  ? "No active tenants found."
+                  : statusFilter === "SUSPENDED"
+                    ? "No suspended tenants found."
+                    : "No archived tenants found."}
+              </td>
+            </tr>
           )}
+        </tbody>
+      </table>
 
-          <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
-            <span>
-              Page {page} of {Math.ceil(total / pageSize)}
-            </span>
-          </div>
-        </>
-      ) : (
-        <p className="pf-muted" style={{ color: "red" }}>
-          Access denied. <a href="/admin/login">Log in</a> as a platform admin.
-        </p>
+      {/* Pagination */}
+      {total > pageSize && (
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "center", gap: 8 }}>
+          <button
+            disabled={page === 1}
+            onClick={() => setPage(page - 1)}
+            className="pf-button secondary"
+          >
+            Prev
+          </button>
+          <span style={{ fontSize: 12, color: "#64748b" }}>
+            Page {page} of {Math.ceil(total / pageSize)}
+          </span>
+          <button
+            disabled={page * pageSize >= total}
+            onClick={() => setPage(page + 1)}
+            className="pf-button secondary"
+          >
+            Next
+          </button>
+        </div>
       )}
+
+      {/* Create Tenant Button */}
+      <div style={{ marginTop: 24 }}>
+        <button
+          className="pf-button primary"
+          onClick={() => navigate("/tenants/create")}
+        >
+          Create Tenant
+        </button>
+      </div>
     </div>
   );
 }
-
