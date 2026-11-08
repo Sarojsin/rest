@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { platformFetch } from "../../lib/platformApi";
 
 export default function AcceptInvitationPage() {
   const navigate = useNavigate();
-  const params = useSearchParams();
-  const token = params.get("token") || "";
+  const { token } = useParams<{ token: string }>();
 
   const [password, setPassword] = useState("");
-  const [mfaCode, setMfaCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -24,7 +22,7 @@ export default function AcceptInvitationPage() {
       const res = await platformFetch(`/api/platform/auth/invitations/${token}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, mfa_code: mfaCode }),
+        body: JSON.stringify({ password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to accept");
@@ -50,22 +48,13 @@ export default function AcceptInvitationPage() {
     <div style={{ padding: 32, maxWidth: 400 }}>
       <h2>Complete account setup</h2>
       {error && <p className="pf-error">{error}</p>}
-      <p>Set up your password and authenticator code:</p>
+      <p>Set up your password:</p>
       <input
         className="pf-input"
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         placeholder="Password"
-        required
-      />
-      <input
-        className="pf-input"
-        type="text"
-        value={mfaCode}
-        onChange={(e) => setMfaCode(e.target.value)}
-        placeholder="Authenticator code"
-        maxLength={6}
         required
       />
       <div style={{ marginTop: 24, display: "flex", gap: 8, justifyContent: "flex-end" }}>

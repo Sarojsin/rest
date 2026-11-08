@@ -5,6 +5,7 @@ import { ThemeProvider } from "./styles/ThemeProvider";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import AcceptInvitationPage from "./pages/staff/AcceptInvitationPage";
+import AdminDiagnosticsPage from "./pages/admin/AdminDiagnosticsPage";
 import CustomerMenuPage from "./pages/CustomerMenuPage";
 import CustomerStatusPage from "./pages/CustomerStatusPage";
 import StaffLayout from "./pages/staff/StaffLayout";
@@ -72,9 +73,8 @@ export default function App() {
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
-        <Route path="/admin/tenants/create" element={<AdminTenantCreatePage />} />
-  <Route path="/admin/diagnostics" element={<AdminDiagnosticsPage />} />
-</Routes>
+          <Route path="/admin/diagnostics" element={<AdminDiagnosticsPage />} />
+        </Routes>
       </AuthProvider>
     </ThemeProvider>
   );

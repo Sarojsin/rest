@@ -1,0 +1,1 @@
+start "" cmd /c "cd E:\rest\apps\web && npm run dev"
