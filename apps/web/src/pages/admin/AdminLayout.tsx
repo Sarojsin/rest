@@ -118,6 +118,12 @@ export default function AdminLayout() {
     return () => window.removeEventListener(STEP_UP_EVENT, onStepUpRequired);
   }, []);
 
+  useEffect(() => {
+    if (!stepUpNotice) return;
+    const timer = window.setTimeout(() => setStepUpNotice(false), 8000);
+    return () => window.clearTimeout(timer);
+  }, [stepUpNotice]);
+
   if (!admin) return null;
 
   const env = environmentLabel();
@@ -175,6 +181,14 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+      {stepUpOpen ? (
+        <StepUpDialog
+          onClose={() => {
+            setStepUpOpen(false);
+            setStepUpNotice(true);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

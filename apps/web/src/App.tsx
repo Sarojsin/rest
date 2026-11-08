@@ -22,6 +22,7 @@ import WaiterOrderPage from "./pages/staff/WaiterOrderPage";
 import BranchesPage from "./pages/staff/BranchesPage";
 import InventoryPage from "./pages/staff/InventoryPage";
 import EmployeesPage from "./pages/staff/EmployeesPage";
+import TeamPage from "./pages/staff/TeamPage";
 import LoyaltyPage from "./pages/staff/LoyaltyPage";
 import ReviewsPage from "./pages/staff/ReviewsPage";
 import SubscriptionPage from "./pages/staff/SubscriptionPage";
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="branches" element={<BranchesPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="employees" element={<EmployeesPage />} />
+            <Route path="team" element={<TeamPage />} />
             <Route path="loyalty" element={<LoyaltyPage />} />
             <Route path="reviews" element={<ReviewsPage />} />
             <Route path="subscription" element={<SubscriptionPage />} />

@@ -63,7 +63,8 @@ function readCookie(name: string): string | null {
 async function readProblem(response: Response): Promise<PlatformProblem> {
   try {
     const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.includes("application/json")) return {};
+    // Platform problems are RFC 7807 `application/problem+json`.
+    if (!contentType.includes("json")) return {};
     const parsed: unknown = await response.json();
     return parsed && typeof parsed === "object" ? (parsed as PlatformProblem) : {};
   } catch {
