@@ -220,7 +220,11 @@ def create_tenant(
         if settings.invitation_base_url
         else (settings.platform_tenant_origin.rstrip("/") if settings.platform_tenant_origin else "")
     )
-    accept_url = f"{base_url}/invite/{raw_token}" if base_url else f"/invite/{raw_token}"
+    accept_url = (
+        f"{base_url}/auth/invitations/{raw_token}"
+        if base_url
+        else f"/auth/invitations/{raw_token}"
+    )
     try:
         email_service = get_email_service()
         email_service.send_invitation(
@@ -245,7 +249,10 @@ def create_tenant(
         "invitation": {
             "sent": invitation_sent,
             "expires_at": now + timedelta(hours=settings.invitation_ttl_hours),
-            "accept_url": accept_url if settings.email_backend == "log" else None,
+            # The admin who created the tenant may hand this one-time link to
+            # the owner directly when email delivery is unavailable.
+            "accept_url": accept_url,
+            "token": raw_token,
         },
         "audit_id": None,
     }
@@ -436,7 +443,11 @@ def onboard_restaurant(
             else ""
         )
     )
-    accept_url = f"{base_url}/invite/{raw_token}" if base_url else f"/invite/{raw_token}"
+    accept_url = (
+        f"{base_url}/auth/invitations/{raw_token}"
+        if base_url
+        else f"/auth/invitations/{raw_token}"
+    )
     try:
         email_service = get_email_service()
         email_service.send_invitation(
@@ -474,6 +485,10 @@ def onboard_restaurant(
             "sent": invitation_sent,
             "email": str(payload.owner.email).lower(),
             "expires_at": expires_at,
+            # Returned so the creating admin can deliver the one-time link when
+            # SMTP delivery is unavailable (email is best-effort only).
+            "accept_url": accept_url,
+            "token": raw_token,
         },
         "audit_id": None,
     }

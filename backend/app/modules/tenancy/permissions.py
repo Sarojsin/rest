@@ -37,7 +37,37 @@ OWNER = {
     "subscriptions.manage",
 }
 
-MANAGER = OWNER.copy()
+MANAGER = {
+    "orders.read",
+    "orders.create",
+    "orders.confirm_qr",
+    "orders.serve",
+    "orders.cancel",
+    "kitchen.read",
+    "kitchen.update",
+    "bills.issue",
+    "payments.record",
+    "menu.manage",
+    "tables.manage",
+    "tables.configure",
+    "reports.read",
+    "branches.read",
+    "branches.create",
+    "branches.update",
+    "inventory.read",
+    "inventory.manage",
+    "employees.read",
+    "employees.create",
+    "employees.update",
+    "shifts.read",
+    "shifts.create",
+    "loyalty.read",
+    "loyalty.manage",
+    "loyalty.redeem",
+    "reviews.read",
+    "reviews.create",
+    "reviews.respond",
+}
 
 WAITER = {
     "orders.read",
@@ -47,19 +77,12 @@ WAITER = {
     "kitchen.read",
     "tables.manage",
     "branches.read",
-    "inventory.read",
-    "employees.read",
-    "shifts.read",
-    "loyalty.read",
-    "reviews.read",
-    "reviews.create",
 }
 
 KITCHEN = {
     "orders.read",
     "kitchen.read",
     "kitchen.update",
-    "inventory.read",
 }
 
 CASHIER = {
@@ -68,12 +91,6 @@ CASHIER = {
     "bills.issue",
     "payments.record",
     "reports.read",
-    "kitchen.read",
-    "branches.read",
-    "loyalty.read",
-    "loyalty.redeem",
-    "reviews.read",
-    "subscriptions.read",
 }
 
 ROLE_PERMISSIONS = {

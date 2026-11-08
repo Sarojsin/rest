@@ -836,8 +836,10 @@ class PlatformExportJob(UUIDPrimaryKeyMixin, Base):
     )
     download_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    created_by_admin_id: Mapped[UUID] = mapped_column(
-        ForeignKey("platform_admins.id", ondelete="SET NULL"), nullable=False
+    # Kept nullable so deleting a platform admin does not fail on historical
+    # export jobs (the FK uses ON DELETE SET NULL).
+    created_by_admin_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("platform_admins.id", ondelete="SET NULL"), nullable=True
     )
 
     __table_args__ = (
