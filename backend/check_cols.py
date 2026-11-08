@@ -1,18 +1,14 @@
-import psycopg
+import psycopg2
 
-URL = "postgresql://rest:rest@localhost:5433/restaurant"
-conn = psycopg.connect(URL, autocommit=True)
-cur = conn.cursor()
-
-# Check for existing policies
-cur.execute("""
-    SELECT polname, polcmd, polroles, polqual, polwithcheck
-    FROM pg_policy
-    WHERE polrelid = 'restaurant_tables'::regclass
-""")
-rows = cur.fetchall()
-print("Existing policies on restaurant_tables:")
-for r in rows:
-    print(f"  {r}")
-
-conn.close()
+c = psycopg2.connect('dbname=restaurant user=postgres password=tara host=localhost')
+cur = c.cursor()
+cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'menu_categories' ORDER BY ordinal_position")
+print("menu_categories columns:")
+for r in cur.fetchall():
+    print(f"  {r[0]}")
+cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'menu_items' ORDER BY ordinal_position")
+print("menu_items columns:")
+for r in cur.fetchall():
+    print(f"  {r[0]}")
+cur.close()
+c.close()
