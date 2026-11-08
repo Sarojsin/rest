@@ -31,10 +31,19 @@ const EMPTY_DRAFT: Draft = {
 type RestaurantInfo = { customer_hostname: string };
 
 function buildUrl(table: Table, customerHostname: string | null): string {
+  const token = table.qr_token ?? "";
   // Locked per-tenant customer host (D5); falls back to same-origin in dev
   // sessions where the management endpoint has not answered yet.
-  if (customerHostname) return `https://${customerHostname}/t/${table.qr_token ?? ""}`;
-  return `${window.location.origin}/t/${table.qr_token ?? ""}`;
+  if (customerHostname) {
+    const isDev =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname.startsWith("192.168.");
+    const port = window.location.port ? `:${window.location.port}` : "";
+    const protocol = isDev ? "http" : "https";
+    return `${protocol}://${customerHostname}${port}/t/${token}`;
+  }
+  return `${window.location.origin}/t/${token}`;
 }
 
 /** Next free numeric code after seeded codes like T1..T6 (owner can override). */

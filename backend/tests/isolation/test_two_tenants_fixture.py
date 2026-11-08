@@ -18,9 +18,15 @@ from fastapi.testclient import TestClient
 
 # Populate the module namespace so app.models.* is available.
 import app.models  # noqa: F401, makes app.modules.identity.models etc. available
-from app.db.session import SessionLocal
+from app.db.base import Base
+from app.db.session import SessionLocal, engine
 from app.main import create_app  # ensures import app.models runs
 from app.seed import seed_if_empty
+
+# This module talks to SessionLocal directly (no TestClient startup), so it
+# must create the schema itself or it fails when collected before any test
+# that bootstraps the database.
+Base.metadata.create_all(bind=engine)
 
 app = create_app()
 client = TestClient(app)

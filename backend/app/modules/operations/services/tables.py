@@ -66,7 +66,7 @@ def _table_out(
         occupancy=occupancy,
         active_session_id=session.id if session else None,
         pending_qr_count=int((pending_counts or {}).get(table.id, 0)),
-        qr_token=qr.token_preview if qr else None,
+        qr_token=qr.raw_token if qr and qr.raw_token else (qr.token_preview if qr else None),
     )
 
 
@@ -148,6 +148,7 @@ def _issue_qr(db: Session, restaurant_id: UUID, table: RestaurantTable) -> str:
             table_id=table.id,
             token_hash=hash_token(raw),
             token_preview=raw[:16],  # preview column is varchar(16); PG enforces it
+            raw_token=raw,
             status="ACTIVE",
         )
     )

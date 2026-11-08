@@ -31,6 +31,7 @@ class TableQrCode(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     table_id: Mapped[UUID] = mapped_column(ForeignKey("restaurant_tables.id"), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     token_preview: Mapped[str] = mapped_column(String(16), nullable=False)
+    raw_token: Mapped[str] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
     revoked_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
