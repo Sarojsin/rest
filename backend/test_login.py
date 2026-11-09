@@ -1,23 +1,20 @@
 import requests
 
 session = requests.Session()
+session.headers.update({'Origin': 'http://127.0.0.1:5173'})
 
-# Try logging in as sagardhami84@gmail.com
+# Try login
 payload = {
-    "email": "sagardhami84@gmail.com",
-    "password": "TestPass123!"
+    'email': 'sarojsinghdhami91@gmail.com',
+    'password': 'TestPass123!'
 }
 
-r = session.post('http://127.0.0.1:8000/api/platform/auth/login',
-                 json=payload,
-                 headers={'Origin': 'http://127.0.0.1:5173'},
-                 timeout=10)
+r = session.post('http://127.0.0.1:8000/api/platform/auth/login', json=payload, timeout=10)
 print(f'Login status: {r.status_code}')
-print(f'Response: {r.text[:500]}')
-
 if r.status_code == 200:
     data = r.json()
-    print(f'\nLogin successful!')
-    print(f'Admin email: {data.get("admin", {}).get("email")}')
-    print(f'Admin display name: {data.get("admin", {}).get("display_name")}')
-    print(f'Auth token obtained')
+    print(f'Login successful: {data.get("user", {}).get("email")}')
+    print(f'Token: {data.get("access_token", "")[:50]}...')
+    print(f'Permissions: {data.get("user", {}).get("permissions", [])}')
+else:
+    print(f'Login failed: {r.text[:200]}')
