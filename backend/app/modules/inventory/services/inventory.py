@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.inventory.models import (
@@ -80,6 +81,32 @@ def create_ingredient(db: Session, actor, payload: IngredientIn) -> IngredientOu
             "An ingredient with this name already exists.",
         )
 
+    if payload.code is not None:
+        existing_code = db.scalar(
+            select(Ingredient).where(
+                Ingredient.restaurant_id == actor.restaurant_id,
+                Ingredient.code == payload.code,
+            )
+        )
+        if existing_code:
+            raise AppError(
+                409, "INGREDIENT_CODE_EXISTS", "Ingredient code in use",
+                "An ingredient with this code already exists.",
+            )
+
+    if payload.sku is not None:
+        existing_sku = db.scalar(
+            select(Ingredient).where(
+                Ingredient.restaurant_id == actor.restaurant_id,
+                Ingredient.sku == payload.sku,
+            )
+        )
+        if existing_sku:
+            raise AppError(
+                409, "INGREDIENT_SKU_EXISTS", "SKU in use",
+                "An ingredient with this SKU already exists.",
+            )
+
     if payload.supplier_id is not None:
         supplier = db.get(Supplier, payload.supplier_id)
         if supplier is None or supplier.restaurant_id != actor.restaurant_id:
@@ -87,18 +114,40 @@ def create_ingredient(db: Session, actor, payload: IngredientIn) -> IngredientOu
                 404, "SUPPLIER_NOT_FOUND", "Not found", "Supplier was not found."
             )
 
+    if payload.branch_id is not None:
+        from app.modules.branches.models import Branch
+        branch = db.get(Branch, payload.branch_id)
+        if branch is None or branch.restaurant_id != actor.restaurant_id:
+            raise AppError(
+                404, "BRANCH_NOT_FOUND", "Not found", "Branch was not found."
+            )
+
     ingredient = Ingredient(
         restaurant_id=actor.restaurant_id,
         name=payload.name,
         code=payload.code,
+        sku=payload.sku,
         unit=payload.unit,
+        base_unit=payload.base_unit,
+        category=payload.category,
+        unit_conversions=payload.unit_conversions,
         current_stock=payload.current_stock,
         minimum_stock=payload.minimum_stock,
+        cost_per_unit_minor=payload.cost_per_unit_minor,
+        storage_location=payload.storage_location,
+        branch_id=payload.branch_id,
         supplier_id=payload.supplier_id,
     )
     _apply_stock_status(ingredient)
     db.add(ingredient)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise AppError(
+            409, "INGREDIENT_DUPLICATE", "Ingredient already exists",
+            "An ingredient with this name, code, or SKU already exists.",
+        )
     db.refresh(ingredient)
     return _ingredient_out(ingredient)
 
@@ -268,7 +317,10 @@ def create_purchase_order(
         code=payload.code,
         status=payload.status or "DRAFT",
         expected_date=payload.expected_date,
+        purchase_date=payload.purchase_date,
         notes=payload.notes,
+        bill_photo_urls=payload.bill_photo_urls,
+        supplier_is_walk_in=payload.supplier_is_walk_in,
         total_minor=total,
         items=rows,
     )
@@ -314,6 +366,7 @@ def receive_purchase_order(
                 ingredient_id=ingredient.id,
                 movement_type="RECEIVE",
                 quantity=delta,
+                previous_balance=ingredient.current_stock - delta,
                 new_balance=ingredient.current_stock,
                 reason=f"Received purchase order {po.code}",
                 reference_id=po.id,
@@ -416,6 +469,18 @@ def record_stock_movement(
     if ingredient is None or ingredient.restaurant_id != actor.restaurant_id:
         raise AppError(404, "INGREDIENT_NOT_FOUND", "Not found", "Ingredient was not found.")
 
+    # Idempotency: if a key was provided and a movement with that key already
+    # exists, return the existing movement instead of creating a duplicate.
+    if payload.idempotency_key:
+        existing = db.scalar(
+            select(StockMovement).where(
+                StockMovement.idempotency_key == payload.idempotency_key,
+                StockMovement.restaurant_id == actor.restaurant_id,
+            )
+        )
+        if existing is not None:
+            return StockMovementOut.model_validate(existing)
+
     movement_type = payload.movement_type
     quantity = payload.quantity
 
@@ -454,6 +519,7 @@ def record_stock_movement(
             422, "INVALID_STOCK", "Invalid stock", "Stock cannot become negative."
         )
 
+    previous_balance = ingredient.current_stock
     ingredient.current_stock = new_balance
     _apply_stock_status(ingredient)
 
@@ -462,10 +528,14 @@ def record_stock_movement(
         ingredient_id=ingredient.id,
         movement_type=movement_type,
         quantity=quantity,
+        previous_balance=previous_balance,
         new_balance=new_balance,
         reason=payload.reason,
         reference_id=payload.reference_id,
         reference_type=payload.reference_type,
+        batch_id=payload.batch_id,
+        branch_id=payload.branch_id,
+        idempotency_key=payload.idempotency_key,
         recorded_by_membership_id=actor.membership.id,
     )
     db.add(movement)
@@ -490,7 +560,7 @@ def calculate_recipe_cost(db: Session, menu_item_id: UUID, restaurant_id: UUID) 
         ingredient = db.get(Ingredient, row.ingredient_id)
         if ingredient is None:
             continue
-        cost = 0
+        cost = ingredient.cost_per_unit_minor
         breakdown.append(
             {
                 "ingredient_name": ingredient.name,

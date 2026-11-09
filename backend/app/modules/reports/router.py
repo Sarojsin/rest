@@ -27,6 +27,24 @@ def advanced(
     return report_service.advanced_report(db, actor.restaurant_id, days=days)
 
 
+@router.get("/reports/payments")
+def payments(
+    days: int = 30,
+    actor: Actor = Depends(require_permission("reports.read")),
+    db: Session = Depends(get_db),
+) -> dict:
+    return report_service.payments_report(db, actor.restaurant_id, days=days)
+
+
+@router.get("/reports/kitchen-speed")
+def kitchen_speed(
+    days: int = 30,
+    actor: Actor = Depends(require_permission("reports.read")),
+    db: Session = Depends(get_db),
+) -> dict:
+    return report_service.kitchen_speed_report(db, actor.restaurant_id, days=days)
+
+
 @router.get("/audit-events", response_model=list[AuditEventOut])
 def audit_events(
     actor: Actor = Depends(require_permission("audit.read")),

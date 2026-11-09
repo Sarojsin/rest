@@ -6,6 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.modules.audit.services import record_audit
+from app.modules.inventory.services.inventory_consumption import (
+    deduct_for_ticket,
+    reverse_for_ticket,
+)
 from app.modules.kitchen.models import KitchenTicket, KitchenTicketItem
 from app.modules.kitchen.schemas import KitchenTicketItemOut, KitchenTicketOut
 from app.modules.kitchen.transitions import assert_kitchen_item_transition
@@ -161,12 +165,35 @@ def transition_kitchen_item(
         item.cancelled_at = now
 
     ticket = item.ticket
+    previous_ticket_status = ticket.status
     ticket.status = _ticket_status_from_items(list(ticket.items))
     ticket.last_updated_by_membership_id = membership.id
     if ticket.status == KitchenTicketStatus.IN_PROGRESS and ticket.started_at is None:
         ticket.started_at = now
     if ticket.status == KitchenTicketStatus.READY and ticket.ready_at is None:
         ticket.ready_at = now
+
+    # ── Inventory consumption (Phase 2) ────────────────────────────────
+    # Deduct once when the ticket first enters IN_PROGRESS.
+    if (
+        previous_ticket_status != KitchenTicketStatus.IN_PROGRESS
+        and ticket.status == KitchenTicketStatus.IN_PROGRESS
+    ):
+        try:
+            deduct_for_ticket(db, ticket, membership.id)
+        except Exception as exc:
+            db.rollback()
+            raise AppError(500, "INVENTORY_DEDUCT_ERROR", "Inventory deduction failed", str(exc))
+    # Reverse deductions when the ticket is cancelled.
+    if (
+        previous_ticket_status != KitchenTicketStatus.CANCELLED
+        and ticket.status == KitchenTicketStatus.CANCELLED
+    ):
+        try:
+            reverse_for_ticket(db, ticket, membership.id)
+        except Exception as exc:
+            db.rollback()
+            raise AppError(500, "INVENTORY_REVERSE_ERROR", "Inventory reversal failed", str(exc))
 
     record_audit(
         db,

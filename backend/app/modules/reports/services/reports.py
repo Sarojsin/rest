@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.modules.audit.models import AuditEvent
+from app.modules.kitchen.models import KitchenTicket
 from app.modules.operations.models import Order
 from app.modules.payments.models import Payment
 from app.modules.reports.schemas import AuditEventOut, SalesReportOut
@@ -115,3 +116,109 @@ def list_audit(db: Session, restaurant_id: UUID, limit: int = 50) -> list[AuditE
         .limit(min(limit, 100))
     ).all()
     return [AuditEventOut.model_validate(row) for row in rows]
+
+
+def payments_report(db: Session, restaurant_id: UUID, *, days: int = 30) -> dict:
+    """Breakdown of recorded payments by configured method label.
+
+    ``Payment.method`` stores the payment method config's label (e.g. "Cash"),
+    which is unique per restaurant, so grouping on it is deterministic. Only
+    succeeded payments count towards collected totals; failed ones are counted
+    separately so the payment page can surface them.
+    """
+    days = max(1, min(days, 365))
+    since = datetime.now(UTC) - timedelta(days=days)
+
+    restaurant = db.get(Restaurant, restaurant_id)
+    payments = (
+        db.scalars(
+            select(Payment).where(
+                Payment.restaurant_id == restaurant_id,
+                Payment.created_at >= since,
+            )
+        )
+        .all()
+    )
+
+    methods: dict[str, dict] = {}
+    succeeded_count = 0
+    failed_count = 0
+    for payment in payments:
+        if payment.status == PaymentStatus.SUCCEEDED:
+            succeeded_count += 1
+            bucket = methods.setdefault(
+                payment.method,
+                {"method": payment.method, "payment_count": 0, "amount_minor": 0},
+            )
+            bucket["payment_count"] += 1
+            bucket["amount_minor"] += payment.amount_minor
+        elif payment.status == PaymentStatus.FAILED:
+            failed_count += 1
+
+    return {
+        "window_days": days,
+        "currency_code": restaurant.currency_code if restaurant else "USD",
+        "total_collected_minor": sum(b["amount_minor"] for b in methods.values()),
+        "succeeded_count": succeeded_count,
+        "failed_count": failed_count,
+        "methods": sorted(methods.values(), key=lambda b: b["amount_minor"], reverse=True),
+    }
+
+
+def kitchen_speed_report(db: Session, restaurant_id: UUID, *, days: int = 30) -> dict:
+    """Ticket prep speed: created -> ready over the recent window.
+
+    Only tickets that actually reached READY within the window count towards
+    the stats; the slowest list helps spot bottlenecks without loading items.
+    """
+    days = max(1, min(days, 365))
+    since = datetime.now(UTC) - timedelta(days=days)
+
+    tickets = (
+        db.scalars(
+            select(KitchenTicket).where(
+                KitchenTicket.restaurant_id == restaurant_id,
+                KitchenTicket.ready_at.is_not(None),
+                KitchenTicket.ready_at >= since,
+            )
+        )
+        .all()
+    )
+
+    timed: list[dict] = []
+    for ticket in tickets:
+        ready = ticket.ready_at
+        created = ticket.created_at
+        if ready is None:
+            continue
+        # Some older rows stored naive datetimes; normalise to aware UTC so
+        # subtraction and comparison are consistent regardless of how they were
+        # persisted.
+        if ready.tzinfo is None:
+            ready = ready.replace(tzinfo=UTC)
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=UTC)
+        if ready < created:
+            continue
+        prep_seconds = (ready - created).total_seconds()
+        timed.append(
+            {
+                "ticket_id": str(ticket.id),
+                "ticket_number": ticket.ticket_number,
+                "status": ticket.status,
+                "started_at": ticket.started_at,
+                "ready_at": ticket.ready_at,
+                "prep_seconds": prep_seconds,
+            }
+        )
+
+    prep_seconds_list = [row["prep_seconds"] for row in timed]
+    completed = len(timed)
+    return {
+        "window_days": days,
+        "completed_ticket_count": completed,
+        "avg_prep_seconds": round(sum(prep_seconds_list) / completed) if completed else 0,
+        "fastest_prep_seconds": round(min(prep_seconds_list)) if completed else 0,
+        "slowest_prep_seconds": round(max(prep_seconds_list)) if completed else 0,
+        "slowest_tickets": sorted(timed, key=lambda r: r["prep_seconds"], reverse=True)[:10],
+    }
