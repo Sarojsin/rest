@@ -215,8 +215,16 @@ def create_tenant(
 
     # Send the owner invitation email (Plan 14). The raw token is delivered
     # only via email; the API response never exposes it.
+    # Build the accept URL dynamically from the request origin so invitation
+    # links always point to the correct frontend host, falling back to config.
+    request_origin = (
+        request.headers.get("origin", "").rstrip("/")
+        if request and request.headers.get("origin")
+        else ""
+    )
     base_url = (
-        settings.invitation_base_url.rstrip("/")
+        request_origin
+        or settings.invitation_base_url.rstrip("/")
         if settings.invitation_base_url
         else (settings.platform_tenant_origin.rstrip("/") if settings.platform_tenant_origin else "")
     )
@@ -434,8 +442,15 @@ def onboard_restaurant(
     db.commit()
 
     # Send owner invitation email (Plan 14). Email failure does not roll back.
+    # Build the accept URL dynamically from the request origin.
+    request_origin = (
+        request.headers.get("origin", "").rstrip("/")
+        if request and request.headers.get("origin")
+        else ""
+    )
     base_url = (
-        settings.invitation_base_url.rstrip("/")
+        request_origin
+        or settings.invitation_base_url.rstrip("/")
         if settings.invitation_base_url
         else (
             settings.platform_tenant_origin.rstrip("/")
