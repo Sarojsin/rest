@@ -2,16 +2,15 @@ import psycopg2
 
 c = psycopg2.connect('dbname=restaurant user=postgres password=tara host=localhost')
 cur = c.cursor()
-# Check users table - look for platform admin or superadmin
-cur.execute("SELECT id, email, display_name, status FROM users WHERE email LIKE '%harbor%' OR email LIKE '%platform%' OR status = 'SUPERADMIN'")
-print('Users with harbor/platform/superadmin:')
-for r in cur.fetchall():
-    print('  User:', r)
 
-# Check all users
-cur.execute("SELECT id, email, display_name, status FROM users")
-print('\nAll users:')
+cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'users' ORDER BY ordinal_position")
+print('users columns:')
 for r in cur.fetchall():
-    print('  User:', r)
+    print(f'  {r[0]}')
+
+cur.execute('SELECT * FROM users')
+print('\\nUsers:')
+for r in cur.fetchall():
+    print(r)
 
 c.close()

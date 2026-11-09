@@ -1,36 +1,14 @@
-import psycopg2
+import requests
+import json
 
-c = psycopg2.connect('dbname=restaurant user=postgres password=tara host=localhost')
-cur = c.cursor()
+session = requests.Session()
+session.headers.update({'Origin': 'http://127.0.0.1:5173'})
 
-# Check plan versions
-print("=== Platform Plan Versions ===")
-cur.execute("SELECT id, plan_id, version, is_active, effective_from FROM platform_plan_versions ORDER BY plan_id, version")
-for r in cur.fetchall():
-    print(f"  plan_id={r[0]}, version={r[1]}, is_active={r[2]}, effective_from={r[3]}")
-
-# Check active plans
-print("\n=== Active Plans ===")
-cur.execute("SELECT id, code, name, is_public, status FROM platform_plans WHERE is_public = true AND status = 'ACTIVE'")
-for r in cur.fetchall():
-    print(f"  code={r[1]}, name={r[2]}, is_public={r[3]}, status={r[4]}")
-
-# Check the specific registration
-print("\n=== Registration with sagardhami84@gmail.com ===")
-cur.execute("SELECT id, restaurant_name, owner_email, plan_code, status FROM self_service_registrations WHERE owner_email='sagardhami84@gmail.com'")
-for r in cur.fetchall():
-    print(f"  id={r[0]}, name={r[1]}, email={r[2]}, plan={r[3]}, status={r[4]}")
-
-    # Check plan for this registration
-    plan_code = r[3]
-    cur.execute("SELECT id, code, name, is_public, status FROM platform_plans WHERE code = %s AND is_public = true AND status = 'ACTIVE'", (plan_code,))
-    plan = cur.fetchone()
-    print(f"  Plan in DB: {plan}")
-
-    # Check plan versions
-    if plan:
-        cur.execute("SELECT id, plan_id, version, is_active FROM platform_plan_versions WHERE plan_id = %s ORDER BY version DESC", (plan[0],))
-        versions = cur.fetchall()
-        print(f"  Plan versions: {versions}")
-
-c.close()
+# Check public plans
+r = session.get('http://127.0.0.1:8000/api/platform/public/plans', timeout=10)
+print(f'Public plans status: {r.status_code}')
+if r.status_code == 200:
+    data = r.json()
+    print(f'Plans: {json.dumps(data, indent=2)[:1000]}')
+else:
+    print(f'Response: {r.text[:500]}')
