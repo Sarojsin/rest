@@ -17,10 +17,25 @@ import KitchenPage from "./pages/staff/KitchenPage";
 import CashierPage from "./pages/staff/CashierPage";
 import MenuManagePage from "./pages/staff/MenuManagePage";
 import PaymentSettingsPage from "./pages/staff/PaymentSettingsPage";
-import ReportsPage from "./pages/staff/ReportsPage";
+import ReportsLayout from "./pages/staff/reports/ReportsLayout";
+import ReportsOverviewPage from "./pages/staff/reports/ReportsOverviewPage";
+import ReportsSalesPage from "./pages/staff/reports/ReportsSalesPage";
+import ReportsDailyPage from "./pages/staff/reports/ReportsDailyPage";
+import ReportsPaymentsPage from "./pages/staff/reports/ReportsPaymentsPage";
+import ReportsInventoryPage from "./pages/staff/reports/ReportsInventoryPage";
+import ReportsKitchenPage from "./pages/staff/reports/ReportsKitchenPage";
+import ReportsAuditPage from "./pages/staff/reports/ReportsAuditPage";
 import WaiterOrderPage from "./pages/staff/WaiterOrderPage";
 import BranchesPage from "./pages/staff/BranchesPage";
-import InventoryPage from "./pages/staff/InventoryPage";
+import InventoryLayout from "./pages/staff/inventory/InventoryLayout";
+import InventoryOverviewPage from "./pages/staff/inventory/InventoryOverviewPage";
+import IngredientsPage from "./pages/staff/inventory/IngredientsPage";
+import MovementsPage from "./pages/staff/inventory/MovementsPage";
+import PurchaseOrdersPage from "./pages/staff/inventory/PurchaseOrdersPage";
+import BatchesPage from "./pages/staff/inventory/BatchesPage";
+import StockCountsPage from "./pages/staff/inventory/StockCountsPage";
+import RecipesPage from "./pages/staff/inventory/RecipesPage";
+import SuppliersPage from "./pages/staff/inventory/SuppliersPage";
 import EmployeesPage from "./pages/staff/EmployeesPage";
 import TeamPage from "./pages/staff/TeamPage";
 import LoyaltyPage from "./pages/staff/LoyaltyPage";
@@ -58,9 +73,26 @@ export default function App() {
             <Route path="pending" element={<PendingPage />} />
             <Route path="menu" element={<MenuManagePage />} />
             <Route path="payments" element={<PaymentSettingsPage />} />
-            <Route path="reports" element={<ReportsPage />} />
+            <Route path="reports" element={<ReportsLayout />}>
+              <Route index element={<ReportsOverviewPage />} />
+              <Route path="sales" element={<ReportsSalesPage />} />
+              <Route path="daily" element={<ReportsDailyPage />} />
+              <Route path="payments" element={<ReportsPaymentsPage />} />
+              <Route path="inventory" element={<ReportsInventoryPage />} />
+              <Route path="kitchen" element={<ReportsKitchenPage />} />
+              <Route path="audit" element={<ReportsAuditPage />} />
+            </Route>
             <Route path="branches" element={<BranchesPage />} />
-            <Route path="inventory" element={<InventoryPage />} />
+            <Route path="inventory" element={<InventoryLayout />}>
+              <Route index element={<InventoryOverviewPage />} />
+              <Route path="ingredients" element={<IngredientsPage />} />
+              <Route path="purchases" element={<PurchaseOrdersPage />} />
+              <Route path="movements" element={<MovementsPage />} />
+              <Route path="batches" element={<BatchesPage />} />
+              <Route path="counts" element={<StockCountsPage />} />
+              <Route path="recipes" element={<RecipesPage />} />
+              <Route path="suppliers" element={<SuppliersPage />} />
+            </Route>
             <Route path="employees" element={<EmployeesPage />} />
             <Route path="team" element={<TeamPage />} />
             <Route path="loyalty" element={<LoyaltyPage />} />
