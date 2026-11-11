@@ -23,9 +23,20 @@ class MeOut(BaseModel):
     email: str
     display_name: str
     membership: MembershipOut
+    memberships: list[MembershipOut] = []
+    active_branch_id: UUID | None = None
 
 
 class LoginResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user: MeOut
+
+
+class MFAChallengeResponse(BaseModel):
+    mfa_required: bool = True
+    mfa_token: str  # Short-lived token for MFA challenge completion
+    user_id: UUID
+    membership_id: UUID
+    restaurant_id: UUID

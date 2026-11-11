@@ -9,6 +9,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
 from app.core.config import settings
+from app.core.redis import get_redis
 from app.shared.errors import AppError
 
 # Account lockout tracking (in production, use Redis for persistence)
@@ -161,6 +162,11 @@ def decode_access_token(token: str, *, expected_realm: str = "staff") -> dict:
         ) from exc
 
 
+def decode_mfa_challenge_token(token: str) -> dict:
+    """Decode and validate an MFA challenge token (realm: staff-mfa)."""
+    return decode_access_token(token, expected_realm="staff-mfa")
+
+
 def create_platform_access_token(
     *,
     admin_id: UUID,
@@ -220,3 +226,85 @@ def decode_platform_access_token(token: str) -> dict:
             401, "INVALID_TOKEN", "Unauthorized", "Authentication is required."
         )
     return payload
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Refresh tokens (Redis-backed, single-use, rotating)
+# ──────────────────────────────────────────────────────────────────────────────
+
+REFRESH_TOKEN_PREFIX = "refresh:"
+REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days absolute max
+
+
+async def create_refresh_token(
+    *,
+    user_id: UUID,
+    membership_id: UUID,
+    restaurant_id: UUID,
+    token_version: int,
+) -> str:
+    """Create a new refresh token and store it in Redis."""
+    raw = secrets.token_urlsafe(48)
+    token_hash = hash_token(raw)
+    key = f"{REFRESH_TOKEN_PREFIX}{token_hash}"
+
+    payload = {
+        "sub": str(user_id),
+        "mid": str(membership_id),
+        "rid": str(restaurant_id),
+        "ver": token_version,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    import json
+
+    redis = get_redis()
+    await redis.setex(key, REFRESH_TOKEN_TTL_SECONDS, json.dumps(payload))
+    return raw
+
+
+async def verify_and_consume_refresh_token(raw_token: str) -> dict | None:
+    """Verify a refresh token, consume it (delete from Redis), and return payload if valid."""
+    token_hash = hash_token(raw_token)
+    key = f"{REFRESH_TOKEN_PREFIX}{token_hash}"
+
+    redis = get_redis()
+    stored = await redis.get(key)
+    if not stored:
+        return None
+
+    # Consume the token (single-use)
+    await redis.delete(key)
+
+    import json
+
+    payload = json.loads(stored)
+    return payload
+
+
+async def revoke_refresh_token(raw_token: str) -> bool:
+    """Revoke a specific refresh token."""
+    token_hash = hash_token(raw_token)
+    key = f"{REFRESH_TOKEN_PREFIX}{token_hash}"
+
+    redis = get_redis()
+    result = await redis.delete(key)
+    return result > 0
+
+
+async def revoke_all_user_refresh_tokens(user_id: UUID) -> int:
+    """Revoke all refresh tokens for a user (used on password change, role revoke, etc.)."""
+    redis = get_redis()
+    pattern = f"{REFRESH_TOKEN_PREFIX}*"
+    count = 0
+
+    async for key in redis.scan_iter(match=pattern):
+        stored = await redis.get(key)
+        if stored:
+            import json
+
+            payload = json.loads(stored)
+            if payload.get("sub") == str(user_id):
+                await redis.delete(key)
+                count += 1
+
+    return count

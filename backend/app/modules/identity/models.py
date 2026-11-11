@@ -15,6 +15,12 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
     last_login_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
+    # Staff MFA (TOTP + recovery codes)
+    totp_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    recovery_codes_hash: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    mfa_enabled: Mapped[bool] = mapped_column(default=False, nullable=False)
+    mfa_enrolled_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
     memberships: Mapped[list["RestaurantMembership"]] = relationship(  # noqa: F821
         back_populates="user"
     )

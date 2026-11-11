@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg2://postgres:tara@localhost:5432/restaurant"
     access_token_minutes: int = 480
 
+    # Redis (for refresh tokens, rate limiting, etc.)
+    redis_url: str = "redis://localhost:6379/0"
+
     # CORS
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
