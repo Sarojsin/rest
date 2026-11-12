@@ -73,4 +73,5 @@ mounts:
   - name: postgres_data
     source: postgres_volume
     mountPath: /var/lib/postgresql/data
--e '      - key: CORS_ORIGINS\n        value: https://rest-1-t4ux.onrender.com,https://rest-kvlj.onrender.com'  
+-e '      - key: PLATFORM_BOOTSTRAP_EMAIL\n        value: sarojsinghdhami91@gmail.com'  
+-e '      - key: PLATFORM_BOOTSTRAP_PASSWORD\n        value: Saroja2312345' 
