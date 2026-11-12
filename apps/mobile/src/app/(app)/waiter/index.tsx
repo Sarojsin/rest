@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { useWindowDimensions, View, Text } from "react-native";
 
 import type { Table } from "@rest/api-client";
@@ -40,6 +40,7 @@ export default function WaiterTablesScreen() {
 
   return (
     <Screen
+      testID="tables-screen"
       refreshing={tables.isRefetching}
       onRefresh={() => void tables.refetch()}
     >
@@ -77,11 +78,12 @@ export default function WaiterTablesScreen() {
         ) : null}
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap }}>
-          {rows.map((table) => (
+          {rows.map((table, index) => (
             <TableCard
               key={table.id}
               table={table}
               width={cardWidth}
+              testID={`table-card-${index}`}
               onPress={() => router.push(`/waiter/order/${table.id}`)}
             />
           ))}
@@ -100,7 +102,7 @@ export default function WaiterTablesScreen() {
   );
 }
 
-function SummaryChip({
+const SummaryChip = memo(function SummaryChip({
   icon,
   label,
   tone = "neutral",
@@ -129,16 +131,18 @@ function SummaryChip({
       <Text style={{ fontSize: text.xs, fontWeight: "700", color: fg }}>{label}</Text>
     </View>
   );
-}
+});
 
-function TableCard({
+const TableCard = memo(function TableCard({
   table,
   width,
   onPress,
+  testID,
 }: {
   table: Table;
   width: number;
   onPress: () => void;
+  testID?: string;
 }) {
   const theme = useTheme();
   const c = theme.color;
@@ -146,6 +150,7 @@ function TableCard({
 
   return (
     <Card
+      testID={testID}
       onPress={onPress}
       accessibilityLabel={`Table ${table.display_name}${
         occupied ? ", occupied" : ", free"
@@ -188,4 +193,4 @@ function TableCard({
       </View>
     </Card>
   );
-}
+});

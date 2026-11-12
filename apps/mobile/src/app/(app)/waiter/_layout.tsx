@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect } from "expo-router";
 import { Tabs } from "expo-router/js-tabs";
+import { View } from "react-native";
 
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/theme/context";
@@ -18,8 +19,9 @@ export default function WaiterLayout() {
   if (!has("orders.create")) return <Redirect href="/" />;
 
   return (
-    <Tabs
-      screenOptions={{
+    <View testID="main-tabs">
+      <Tabs
+        screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: c.primary,
         tabBarInactiveTintColor: c.muted,
@@ -55,5 +57,6 @@ export default function WaiterLayout() {
         }}
       />
     </Tabs>
+    </View>
   );
 }
