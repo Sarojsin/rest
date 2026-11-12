@@ -186,6 +186,14 @@ def escalate_order(
         event_type="order.escalated",
         aggregate_type="order",
         aggregate_id=order.id,
+        title="Order escalated",
+        body=detail_escalated,
+        data={
+            "order_id": str(order.id),
+            "table_id": str(order.table_id),
+            "route": "/staff",
+        },
+        roles=["owner", "manager"],
     )
     db.commit()
     return _load_order(db, membership.restaurant_id, order.id)

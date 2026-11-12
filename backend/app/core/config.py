@@ -38,6 +38,19 @@ class Settings(BaseSettings):
     uploads_dir: str = "./data/uploads"
     max_qr_image_bytes: int = 2_097_152  # 2 MB
 
+    # ── Cloudinary (guest photo / image storage) ──
+    cloudinary_cloud_name: str = ""
+    cloudinary_api_key: str = ""
+    cloudinary_api_secret: str = ""
+
+    @property
+    def cloudinary_configured(self) -> bool:
+        return bool(
+            self.cloudinary_cloud_name
+            and self.cloudinary_api_key
+            and self.cloudinary_api_secret
+        )
+
     # ── Plan 08: waiter claim responsibility ──
     claim_timeout_minutes: int = 10
     claims_per_hour_limit: int = 60
@@ -47,6 +60,7 @@ class Settings(BaseSettings):
 
     # ── Plan 07: customer QR surface ──
     customer_domain_base: str = "platform.com"
+    customer_qr_domain: str | None = None
     qr_hostname_enforcement: bool = True
 
     # ── Plan 14: invitation email delivery ──
@@ -91,6 +105,11 @@ class Settings(BaseSettings):
     platform_enrollment_ticket_minutes: int = 10
     platform_recovery_code_count: int = 10
     platform_totp_issuer: str = "Restaurant Platform"
+
+    # ── FCM (Cloud Messaging) ──
+    firebase_credentials_path: str = ""
+    firebase_project_id: str = ""
+    fcm_worker_enabled: bool = False
 
     # ── Computed properties ──
     @property

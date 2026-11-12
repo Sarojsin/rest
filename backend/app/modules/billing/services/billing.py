@@ -8,7 +8,7 @@ from app.modules.audit.services import record_audit
 from app.modules.billing.models import Bill, BillItem
 from app.modules.billing.schemas import BillItemOut, BillOut
 from app.modules.notifications.services import record_outbox
-from app.modules.operations.models import DiningSession, Order
+from app.modules.operations.models import DiningSession, Order, RestaurantTable
 from app.modules.payments.models import Payment, PaymentMethodConfig
 from app.modules.payments.schemas import PaymentOut
 from app.modules.tenancy.models import Restaurant, RestaurantMembership
@@ -174,12 +174,22 @@ def issue_bill(db: Session, membership: RestaurantMembership, session_id: UUID) 
         actor_membership_id=membership.id,
         detail=f"total={total}",
     )
+    table = db.get(RestaurantTable, session.table_id)
     record_outbox(
         db,
         restaurant_id=membership.restaurant_id,
         event_type="bill.issued",
         aggregate_type="bill",
         aggregate_id=bill.id,
+        title="Bill issued",
+        body=f"{table.display_name if table else 'Table'} · total {total / 100:.2f}",
+        data={
+            "bill_id": str(bill.id),
+            "session_id": str(session.id),
+            "total_minor": str(total),
+            "route": "/staff/cashier",
+        },
+        roles=["owner", "manager", "cashier"],
     )
     db.commit()
     return _load_bill(db, membership.restaurant_id, bill.id)
@@ -288,10 +298,16 @@ def record_payment(
         event_type="payment.recorded",
         aggregate_type="payment",
         aggregate_id=payment.id,
-        payload=(
-            f'{{"bill_id": "{bill.id}", "method": "{method.label}", '
-            f'"amount_minor": {amount_minor}}}'
-        ),
+        title="Payment received",
+        body=f"{method.label} · {amount_minor / 100:.2f}",
+        data={
+            "bill_id": str(bill.id),
+            "payment_id": str(payment.id),
+            "method": method.label,
+            "amount_minor": str(amount_minor),
+            "route": "/staff/cashier",
+        },
+        roles=["owner", "manager", "cashier"],
     )
     db.commit()
     return _load_bill(db, membership.restaurant_id, bill.id)

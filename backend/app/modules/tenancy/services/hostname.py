@@ -96,15 +96,23 @@ def customer_hostname(row: RestaurantSettings | None, restaurant: Restaurant) ->
 
 
 def _allowed_for_restaurant(db: Session, restaurant_id: object) -> set[str]:
-    """Every hostname that may legitimately serve this restaurant's QR codes."""
+    """Every hostname that may legitimately serve this restaurant's QR codes.
+
+    The shared customer QR domain (customer_qr_domain) is valid for every
+    restaurant: the QR token identifies the restaurant/table, not the hostname.
+    A restaurant's own custom domain is additionally valid when configured.
+    """
     restaurant = db.get(Restaurant, restaurant_id)
     if restaurant is None:
         return set()
     settings_row = db.get(RestaurantSettings, restaurant_id)
-    hosts = {customer_hostname(settings_row, restaurant)}
+    hosts: set[str] = set()
+    if settings.customer_qr_domain:
+        hosts.add(settings.customer_qr_domain.lower())
     if settings_row is not None and settings_row.custom_domain:
-        # The managed subdomain stays valid alongside a custom domain.
-        hosts.add(customer_hostname(None, restaurant))
+        hosts.add(settings_row.custom_domain.lower())
+    # The managed subdomain stays valid alongside a custom domain.
+    hosts.add(customer_hostname(settings_row, restaurant))
     return hosts
 
 

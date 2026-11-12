@@ -333,14 +333,17 @@ def mark_ticket_ready_and_call_waiter(
         event_type="service_call.requested",
         aggregate_type="service_call",
         aggregate_id=call.id,
-        payload=json.dumps(
-            {
-                "kind": ServiceCallKind.KITCHEN,
-                "kitchen_ticket_id": str(ticket.id),
-                "ticket_number": ticket.ticket_number,
-                "table_id": str(order.table_id),
-            }
-        ),
+        title="Food ready for pickup",
+        body=f"Ticket #{ticket.ticket_number} · {call.detail}",
+        data={
+            "kind": str(ServiceCallKind.KITCHEN),
+            "service_call_id": str(call.id),
+            "kitchen_ticket_id": str(ticket.id),
+            "ticket_number": str(ticket.ticket_number),
+            "table_id": str(order.table_id),
+            "route": "/staff/tables",
+        },
+        roles=["owner", "manager", "waiter"],
     )
     db.commit()
     return _single_ticket_out(db, membership.restaurant_id, ticket_id)

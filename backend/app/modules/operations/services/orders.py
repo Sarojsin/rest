@@ -238,6 +238,14 @@ def submit_qr_order(
         event_type="order.pending_confirmation",
         aggregate_type="order",
         aggregate_id=order.id,
+        title="New table order",
+        body=f"{table.display_name} · {len(items)} item(s) · awaiting confirmation",
+        data={
+            "order_id": str(order.id),
+            "table_id": str(table.id),
+            "route": "/staff",
+        },
+        roles=["owner", "manager", "waiter"],
     )
     db.commit()
     db.refresh(order)
@@ -323,6 +331,14 @@ def create_waiter_order(
         event_type="order.accepted",
         aggregate_type="order",
         aggregate_id=order.id,
+        title="New kitchen order",
+        body=f"{table.display_name} · {len(built)} item(s) sent to kitchen",
+        data={
+            "order_id": str(order.id),
+            "table_id": str(table.id),
+            "route": "/staff/kitchen",
+        },
+        roles=["owner", "manager", "kitchen"],
     )
     db.commit()
     return _load_order(db, restaurant_id, order.id)
@@ -385,12 +401,21 @@ def accept_qr_order(db: Session, membership: RestaurantMembership, order_id: UUI
         actor_membership_id=membership.id,
         detail="QR order accepted",
     )
+    table = db.get(RestaurantTable, order.table_id)
     record_outbox(
         db,
         restaurant_id=membership.restaurant_id,
         event_type="order.accepted",
         aggregate_type="order",
         aggregate_id=order.id,
+        title="Order confirmed",
+        body=f"{table.display_name if table else 'Table'} · order sent to kitchen",
+        data={
+            "order_id": str(order.id),
+            "table_id": str(order.table_id),
+            "route": "/staff/kitchen",
+        },
+        roles=["owner", "manager", "kitchen"],
     )
     db.commit()
     return _load_order(db, membership.restaurant_id, order.id)

@@ -56,6 +56,15 @@ def create_service_call(db: Session, qr_token: str) -> tuple[ServiceCall, bool]:
         event_type="service_call.requested",
         aggregate_type="service_call",
         aggregate_id=call.id,
+        title="Guest needs service",
+        body=f"{table.display_name} requested service",
+        data={
+            "service_call_id": str(call.id),
+            "table_id": str(table.id),
+            "kind": str(ServiceCallKind.GUEST),
+            "route": "/staff/tables",
+        },
+        roles=["owner", "manager", "waiter"],
     )
     db.commit()
     db.refresh(call)

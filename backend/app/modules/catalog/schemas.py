@@ -16,7 +16,7 @@ class MenuItemWrite(BaseModel):
     image_path: str = Field(
         default="",
         max_length=255,
-        pattern=r"^$|^/menu/food/[A-Za-z0-9._-]+\.(webp|jpg|jpeg|png|avif)$",
+        pattern=r"^$|^/menu/food/[A-Za-z0-9._-]+\.(webp|jpg|jpeg|png|avif)$|^https?://[A-Za-z0-9._-]+\.[A-Za-z]+/.+",
     )
     model_path: str = Field(
         default="",
@@ -37,7 +37,7 @@ class MenuItemPatch(BaseModel):
     image_path: str | None = Field(
         default=None,
         max_length=255,
-        pattern=r"^$|^/menu/food/[A-Za-z0-9._-]+\.(webp|jpg|jpeg|png|avif)$",
+        pattern=r"^$|^/menu/food/[A-Za-z0-9._-]+\.(webp|jpg|jpeg|png|avif)$|^https?://[A-Za-z0-9._-]+\.[A-Za-z]+/.+",
     )
     model_path: str | None = Field(
         default=None,
@@ -66,6 +66,24 @@ class PublicMenuCategory(BaseModel):
     description: str
     display_order: int
     items: list[PublicMenuItem]
+
+
+class MenuCategoryWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=500)
+    display_order: int = Field(default=0)
+    status: str = Field(default="PUBLISHED", max_length=32)
+
+
+class MenuCategoryPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=500)
+    display_order: int | None = Field(default=None)
+    status: str | None = Field(default=None, max_length=32)
 
 
 class PublicMenuOut(BaseModel):

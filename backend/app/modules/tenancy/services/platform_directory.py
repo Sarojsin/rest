@@ -292,9 +292,9 @@ def create_tenant(
         text(
             """
             INSERT INTO users
-                (id, email, password_hash, display_name, status, created_at, updated_at)
+                (id, email, password_hash, display_name, status, mfa_enabled, created_at, updated_at)
             VALUES
-                (:id, :email, :password_hash, :display_name, 'INVITED', :now, :now)
+                (:id, :email, :password_hash, :display_name, 'INVITED', False, :now, :now)
             """
         ),
         {

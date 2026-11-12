@@ -1,6 +1,8 @@
 from pathlib import Path
 from uuid import uuid4
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +23,9 @@ from app.modules.platform.services.bootstrap import (
 )
 from app.seed import bootstrap_production, seed_if_empty
 from app.shared.errors import AppError, app_error_handler, http_error_handler, problem_body
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -167,3 +172,16 @@ def on_startup() -> None:
             seed_platform_billing_dev(db)
         finally:
             db.close()
+
+    # Optional in-process FCM outbox worker (dev convenience).
+    # Set FCM_WORKER_ENABLED=true to run the worker as a background daemon
+    # thread inside the API process. For production, run the standalone
+    # script (backend/run_fcm_worker.py) as a separate process instead.
+    if settings.fcm_worker_enabled:
+        from app.workers.fcm_outbox import FCMOutboxWorker
+        import threading
+
+        worker = FCMOutboxWorker()
+        thread = threading.Thread(target=worker.run, daemon=True, name="fcm-outbox-worker")
+        thread.start()
+        logger.info("FCM outbox worker started in-process (dev mode)")

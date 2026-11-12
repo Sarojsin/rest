@@ -1,4 +1,4 @@
-"""Staff-realm API composition (api is a composition layer — 02 §2.1 rule 5).
+﻿"""Staff-realm API composition (api is a composition layer — 02 §2.1 rule 5).
 
 Realm split plan: staff under /api/v1 (here), customer QR surface already
 composed under /public in app/api/qr (becomes its own realm host in Phase 7),
@@ -17,6 +17,7 @@ from app.modules.identity.router import router as identity_router
 from app.modules.inventory.router import router as inventory_router
 from app.modules.kitchen.router import router as kitchen_router
 from app.modules.loyalty.router import router as loyalty_router
+from app.modules.notifications.router import router as notifications_router
 from app.modules.operations.router import router as operations_router
 from app.modules.payments.router import router as payments_router
 from app.modules.reports.router import router as reports_router
@@ -36,6 +37,7 @@ api_router.include_router(kitchen_router)
 api_router.include_router(billing_router)
 api_router.include_router(payments_router)
 api_router.include_router(service_calls_router)
+api_router.include_router(notifications_router)
 api_router.include_router(reports_router)
 api_router.include_router(branches_router, prefix="/branches")
 api_router.include_router(inventory_router, prefix="/inventory")

@@ -24,3 +24,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     memberships: Mapped[list["RestaurantMembership"]] = relationship(  # noqa: F821
         back_populates="user"
     )
+
+    device_tokens: Mapped[list["DeviceToken"]] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan"
+    )
