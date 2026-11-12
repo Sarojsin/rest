@@ -29,6 +29,7 @@ def upgrade() -> None:
         "fk_stock_movements_reference_id_purchase_orders",
         "stock_movements",
         type_="foreignkey",
+        if_exists=True,
     )
 
 
