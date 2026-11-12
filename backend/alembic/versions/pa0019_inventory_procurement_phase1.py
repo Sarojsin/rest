@@ -92,7 +92,7 @@ def upgrade() -> None:
     )
     op.execute(
         sa.text("CREATE UNIQUE INDEX IF NOT EXISTS ix_stock_movements_idempotency_key "
-                "ON stock_movements (idempotency_key) WITH (nulls_not_distinct = true)")
+                "ON stock_movements (idempotency_key)")
     )
 
     # ── purchase_orders columns ─────────────────────────────────────────────
