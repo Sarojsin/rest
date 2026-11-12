@@ -18,7 +18,9 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "googleServicesFile": "./google-services.json",
+      "package": "com.restaurant.staff"
     },
     "web": {
       "output": "static",
@@ -27,6 +29,10 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-local-authentication",
+      "expo-notifications",
+      "expo-image",
+      "expo-web-browser",
       [
         "expo-splash-screen",
         {
@@ -35,8 +41,6 @@
           "imageWidth": 76
         }
       ],
-      "expo-image",
-      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

@@ -5,11 +5,15 @@
   "private": true,
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "e2e:build:android": "cd android && ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug",
+    "e2e:test:android": "detox test -c android.emu.debug",
+    "e2e:build:ios": "xcodebuild -workspace ios/restaurant-mobile.xcworkspace -scheme restaurant-mobile -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build",
+    "e2e:test:ios": "detox test -c ios.sim.debug"
   },
   "dependencies": {
     "@expo/ui": "~58.0.25",
@@ -19,13 +23,16 @@
     "expo": "~58.0.21",
     "expo-av": "^16.0.8",
     "expo-constants": "~58.0.13",
+    "expo-device": "~58.0.5",
     "expo-font": "~58.0.10",
     "expo-glass-effect": "~58.0.5",
     "expo-haptics": "~58.0.7",
     "expo-image": "~58.0.18",
     "expo-keep-awake": "~58.0.3",
     "expo-linking": "~58.0.15",
+    "expo-local-authentication": "~58.0.0",
     "expo-network": "~58.0.4",
+    "expo-notifications": "~58.1.9",
     "expo-router": "~58.0.28",
     "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~58.0.12",
@@ -44,7 +51,27 @@
     "react-native-worklets": "0.13.0"
   },
   "devDependencies": {
+    "@babel/preset-env": "^8.0.7",
+    "@babel/preset-react": "^8.0.1",
+    "@babel/preset-typescript": "^8.0.7",
+    "@mswjs/interceptors": "^0.45.12",
+    "@react-native/jest-preset": "^0.88.1",
+    "@swc/core": "^1.16.22",
+    "@swc/jest": "^0.2.39",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/react-native": "^14.1.0",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.3.0",
-    "typescript": "~6.0.3"
+    "babel-plugin-module-resolver": "^5.0.3",
+    "detox": "^20.51.4",
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.5.2",
+    "jest-expo": "^58.0.14",
+    "msw": "^3.0.5",
+    "ts-jest": "^29.4.15",
+    "typescript": "~6.0.3",
+    "whatwg-fetch": "^3.6.20"
   }
 }

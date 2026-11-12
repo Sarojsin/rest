@@ -6,15 +6,99 @@ on:
   pull_request:
 
 jobs:
-  test:
+  backend-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: restaurant
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -e .[dev]
+          pip install argon2-cffi PyJWT httpx
+
+      - name: Run backend integration tests
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/restaurant
+        run: cd backend && python -m pytest tests/test_phase2_integration.py tests/test_claims.py tests/test_new_modules_api.py -v
+
+  mobile-unit-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install backend deps
-        run: cd backend && pip install -e .[dev] && pip install argon2-cffi PyJWT httpx
-      - name: Backend tests
-        run: cd backend && python -m pytest -v
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        working-directory: apps/mobile
+        run: npm ci --legacy-peer-deps
+
+      - name: Run mobile unit tests
+        working-directory: apps/mobile
+        run: npm test -- --ci
+
+      - name: TypeScript typecheck
+        working-directory: apps/mobile
+        run: npm run typecheck
+
+  mobile-e2e-tests:
+    runs-on: ubuntu-latest
+    needs: mobile-unit-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        working-directory: apps/mobile
+        run: npm ci --legacy-peer-deps
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create Android AVD
+        run: |
+          echo "y" | $ANDROID_HOME/tools/bin/sdkmanager "system-images;android-30;default;x86_64"
+          echo "no" | $ANDROID_HOME/tools/bin/avdmanager create avd -n test_avd -k "system-images;android-30;default;x86_64" -d "pixel_3a"
+
+      - name: Start Android Emulator
+        run: $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -gpu swiftshader_indirect -no-snapshot &
+        timeout: 300
+
+      - name: Build Android app for E2E
+        working-directory: apps/mobile
+        run: npm run e2e:build:android
+
+      - name: Run E2E tests
+        working-directory: apps/mobile
+        run: npm run e2e:test:android
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL || 'http://10.0.2.2:8000' }}
