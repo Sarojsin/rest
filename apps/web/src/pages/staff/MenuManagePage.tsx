@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, formatMoney, ApiError, type MenuCategory, type MenuItem } from "../../lib/api";
 import { PageHeader } from "../../components/PageHeader";
+import { Sheet } from "../../components/Sheet";
 import { StatusBadge } from "../../components/StatusBadge";
 
 /**
@@ -84,6 +85,12 @@ export default function MenuManagePage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
+  const [categoryDialog, setCategoryDialog] = useState(false);
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryDescription, setCategoryDescription] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -226,6 +233,86 @@ export default function MenuManagePage() {
 
   const publishedCount = items.filter(({ item }) => item.status === "PUBLISHED").length;
 
+  async function createCategory() {
+    const name = categoryName.trim();
+    if (!name) {
+      setError("Give the category a name.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const created = await apiFetch<{
+        id: string;
+        name: string;
+        description: string | null;
+        display_order: number;
+        status: string;
+      }>("/api/v1/menu/categories", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          description: categoryDescription.trim() || undefined,
+          status: "PUBLISHED",
+        }),
+      });
+      setNotice(`Category "${created.name}" created.`);
+      setCategoryDialog(false);
+      setCategoryName("");
+      setCategoryDescription("");
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : "Could not create the category.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startImageUpload() {
+    if (uploadingImage) return;
+    setError(null);
+    imageInputRef.current?.click();
+  }
+
+  async function handleImageSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+      setError("Please upload a PNG, JPEG, or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be 5 MB or smaller.");
+      return;
+    }
+    setImagePreview(URL.createObjectURL(file));
+    setUploadingImage(true);
+    setError(null);
+      const formData = new FormData();
+    formData.append("image", file);
+    try {
+      if (!draft?.id) {
+        setError("Save the item first before uploading a photo.");
+        return;
+      }
+      const uploaded = await apiFetch<{ id: string; image_path: string }>(
+        `/api/v1/menu/items/${draft.id}/image`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+      setNotice("Guest photo uploaded.");
+      setDraft({ ...draft, imagePath: uploaded.image_path });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : "Could not upload the photo.");
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      setImagePreview(null);
+    }
+  }
+
   return (
     <div className="page">
       <PageHeader
@@ -250,6 +337,16 @@ export default function MenuManagePage() {
             />
             <button className="btn" type="button" onClick={startCreate} disabled={categories.length === 0}>
               New item
+            </button>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => {
+                setCategoryDialog(true);
+                setError(null);
+              }}
+            >
+              New category
             </button>
           </>
         }
@@ -359,12 +456,7 @@ export default function MenuManagePage() {
               </div>
 
               <div className="menu-editor-body">
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void save("PUBLISHED");
-                  }}
-                >
+                <form onSubmit={(event) => { event.preventDefault(); void save("PUBLISHED"); }}>
                   <div className="form-section">
                     <h4>Basics</h4>
                     <label className="field">
@@ -418,31 +510,53 @@ export default function MenuManagePage() {
                     ) : null}
                   </div>
 
-                  <div className="form-section">
-                    <h4>Guest photo</h4>
-                    <p className="form-section-desc">
-                      Only approved, pre-optimised photos can be attached. Uploads are managed outside this
-                      screen.
-                    </p>
-                    <div className="image-picker">
-                      {APPROVED_IMAGES.map((image) => (
-                        <button
-                          key={image.path || "none"}
-                          type="button"
+                    <div className="form-section">
+                      <h4>Guest photo</h4>
+                      <p className="form-section-desc">
+                        Choose a pre-approved photo, or upload one from your device.
+                      </p>
+                      <div className="image-picker">
+                        {APPROVED_IMAGES.map((image) => (
+                          <button
+                            key={image.path || "none"}
+                            type="button"
+                            className="image-option"
+                            aria-pressed={draft.imagePath === image.path}
+                            onClick={() => setDraft({ ...draft, imagePath: image.path })}
+                          >
+                            {image.path ? (
+                              <img src={image.path} alt="" loading="lazy" decoding="async" />
+                            ) : (
+                              <span className="image-placeholder" aria-hidden="true">
+                                —
+                              </span>
+                            )}
+                            {image.label}
+                          </button>
+                        ))}
+                        <label
                           className="image-option"
-                          aria-pressed={draft.imagePath === image.path}
-                          onClick={() => setDraft({ ...draft, imagePath: image.path })}
+                          aria-pressed={Boolean(imagePreview) || draft.imagePath?.startsWith("/api/v1/menu/images/")}
+                          aria-busy={uploadingImage}
+                          onClick={startImageUpload}
                         >
-                          {image.path ? (
-                            <img src={image.path} alt="" loading="lazy" decoding="async" />
+                          <input
+                            ref={imageInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            onChange={handleImageSelect}
+                            style={{ display: "none" }}
+                          />
+                          {imagePreview ? (
+                            <img src={imagePreview} alt="" loading="lazy" decoding="async" />
                           ) : (
                             <span className="image-placeholder" aria-hidden="true">
-                              —
+                              +
                             </span>
                           )}
-                          {image.label}
-                        </button>
-                      ))}
+                          Upload photo
+                        </label>
+                      </div>
                     </div>
                     <label className="field" style={{ marginTop: "var(--space-3)" }}>
                       Fallback emoji
@@ -466,10 +580,9 @@ export default function MenuManagePage() {
                         ))}
                       </select>
                     </label>
-                  </div>
 
-                  <div className="form-section">
-                    <h4>Ingredients &amp; allergens</h4>
+                    <div className="form-section">
+                      <h4>Ingredients &amp; allergens</h4>
                     <p className="form-section-desc">Shown to guests under “What’s inside”.</p>
                     <label className="field">
                       Ingredients
@@ -510,6 +623,53 @@ export default function MenuManagePage() {
           )}
         </div>
       </div>
+      <Sheet
+        open={categoryDialog}
+        onClose={() => setCategoryDialog(false)}
+        title="New category"
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void createCategory();
+          }}
+        >
+          <div className="form-section">
+            <h4>Details</h4>
+            <label className="field">
+              Name
+              <input
+                data-autofocus
+                value={categoryName}
+                maxLength={80}
+                required
+                onChange={(event) => setCategoryName(event.target.value)}
+                placeholder="Appetizers"
+              />
+            </label>
+            <label className="field">
+              Description
+              <textarea
+                rows={2}
+                maxLength={500}
+                value={categoryDescription}
+                onChange={(event) => setCategoryDescription(event.target.value)}
+                placeholder="Starters and small plates."
+              />
+            </label>
+          </div>
+          <div className="sticky-bar">
+            <div className="page-actions">
+              <button className="btn secondary" type="button" onClick={() => setCategoryDialog(false)}>
+                Cancel
+              </button>
+              <button className="btn" type="submit" disabled={busy}>
+                Create category
+              </button>
+            </div>
+          </div>
+        </form>
+      </Sheet>
     </div>
   );
 }

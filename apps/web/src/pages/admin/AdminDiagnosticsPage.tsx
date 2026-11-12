@@ -14,8 +14,7 @@ export default function AdminDiagnosticsPage() {
       setLoading(true);
       setError(null);
       try {
-        const res: Response = await platformFetch("/api/platform/diagnostics/health");
-        const data = await res.json();
+        const data = await platformFetch("/api/platform/diagnostics/health");
         setStatus(data.status || "unknown");
         setSystemInfo(data);
       } catch (err: any) {

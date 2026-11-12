@@ -70,7 +70,7 @@ export default function RegisterSuccessPage() {
         <h1 style={{ marginTop: 0 }}>Registration Submitted</h1>
         <p>No registration information found.</p>
         <button
-          onClick={() => window.location.href = "/admin/plans"}
+          onClick={() => window.location.href = "/pricing"}
           className="pf-button secondary"
         >
           Back to Plans
@@ -159,7 +159,7 @@ export default function RegisterSuccessPage() {
             Complete Registration
           </button>
           <button
-            onClick={() => window.location.href = "/admin/plans"}
+            onClick={() => window.location.href = "/pricing"}
             className="pf-button secondary"
           >
             Browse Plans
@@ -168,7 +168,7 @@ export default function RegisterSuccessPage() {
       ) : (
         <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
           <button
-            onClick={() => window.location.href = "/admin/plans"}
+            onClick={() => window.location.href = "/pricing"}
             className="pf-button"
           >
             Browse Plans

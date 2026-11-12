@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { apiFetch, getToken, setToken, type Me } from "./api";
+import { registerDeviceToken, unregisterDeviceToken } from "./fcm";
 
 type AuthState = {
   me: Me | null;
@@ -26,7 +27,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     apiFetch<Me>("/api/v1/me")
       .then(setMe)
       .catch(() => setToken(null))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        // Register this device for FCM push notifications (fire-and-forget).
+        void registerDeviceToken();
+      });
   }, []);
 
   const value = useMemo<AuthState>(
@@ -42,9 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         setToken(result.access_token);
         setMe(result.user);
+        // Register this device for FCM push notifications (fire-and-forget).
+        void registerDeviceToken();
         return result.user;
       },
       logout() {
+        void unregisterDeviceToken();
         setToken(null);
         setMe(null);
       },

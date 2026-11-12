@@ -102,7 +102,7 @@ export default function PaymentSettingsPage() {
             }),
           });
 
-      if (newImage) {
+      if (newImage && draft.kind === "QR") {
         const form = new FormData();
         form.append("image", newImage);
         await apiFetch<PaymentMethodConfig>(`/api/v1/payment-methods/${saved.id}/qr-image`, {
@@ -386,14 +386,16 @@ export default function PaymentSettingsPage() {
                   />
                 </label>
 
-                <label className="field">
-                  QR image (PNG, JPEG or WebP · up to 2 MB)
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(event) => setNewImage(event.target.files?.[0] ?? null)}
-                  />
-                </label>
+                {draft.kind === "QR" ? (
+                  <label className="field">
+                    QR image (PNG, JPEG or WebP · up to 2 MB)
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={(event) => setNewImage(event.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                ) : null}
 
                 <div className="page-actions">
                   <button className="btn" disabled={busy} type="submit">

@@ -136,7 +136,7 @@ export default function PublicRegisterPage() {
           </p>
         </div>
         <button
-          onClick={() => window.location.href = "/admin/plans"}
+          onClick={() => window.location.href = "/pricing"}
           className="pf-button secondary"
         >
           Back to Plans
@@ -319,7 +319,7 @@ export default function PublicRegisterPage() {
           <button
             type="button"
             className="pf-button secondary"
-            onClick={() => window.location.href = "/admin/plans"}
+            onClick={() => window.location.href = "/pricing"}
           >
             Cancel
           </button>

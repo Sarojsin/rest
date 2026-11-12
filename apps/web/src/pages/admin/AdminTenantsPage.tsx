@@ -28,8 +28,7 @@ export default function AdminTenantsPage() {
       try {
         const statusParam = statusFilter !== "ACTIVE" ? `&status=${statusFilter}` : "";
         const url = `/api/platform/tenants?page=${page}&page_size=${pageSize}${statusParam}`;
-        const res: Response = await platformFetch(url);
-        const data: any = await res.json();
+        const data = await platformFetch(url);
         setTenants(data.items || []);
         setTotal(data.total || 0);
       } catch (err: any) {

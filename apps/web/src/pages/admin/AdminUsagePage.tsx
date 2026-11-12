@@ -16,16 +16,14 @@ export default function AdminUsagePage() {
       setError(null);
       try {
         // Load all tenants first
-        const res: Response = await platformFetch(
+        const data = await platformFetch(
           `/api/platform/tenants?page=1&page_size=100`
         );
-        const data: any = await res.json();
         setTenants(data.items || []);
       } catch (err: any) {
         setError(err.detail || "Failed to load tenants.");
       }
       // Now load usage for each tenant
-      const data: any = await res.json;
       const tenantList = data.items || [];
       if (tenantList.length > 0) {
         try {

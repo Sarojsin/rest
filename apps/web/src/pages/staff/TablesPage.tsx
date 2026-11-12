@@ -27,23 +27,21 @@ const EMPTY_DRAFT: Draft = {
   sort_order: "",
 };
 
-/** Own-tenant surface info returned by the management API (plan 07 M7). */
-type RestaurantInfo = { customer_hostname: string };
-
-function buildUrl(table: Table, customerHostname: string | null): string {
-  const token = table.qr_token ?? "";
-  // Locked per-tenant customer host (D5); falls back to same-origin in dev
-  // sessions where the management endpoint has not answered yet.
-  if (customerHostname) {
-    const isDev =
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1" ||
-      window.location.hostname.startsWith("192.168.");
-    const port = window.location.port ? `:${window.location.port}` : "";
-    const protocol = isDev ? "http" : "https";
-    return `${protocol}://${customerHostname}${port}/t/${token}`;
+/** Centralized customer QR menu URL: one shared domain for every restaurant. */
+function buildCustomerQrUrl(qrToken: string): string {
+  if (
+    import.meta.env.DEV ||
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname.startsWith("192.168.")
+  ) {
+    return `${window.location.origin}/t/${qrToken}`;
   }
-  return `${window.location.origin}/t/${token}`;
+  const domain = import.meta.env.VITE_CUSTOMER_QR_DOMAIN;
+  if (!domain) {
+    return `${window.location.origin}/t/${qrToken}`;
+  }
+  return `https://${domain}/t/${qrToken}`;
 }
 
 /** Next free numeric code after seeded codes like T1..T6 (owner can override). */
@@ -71,12 +69,9 @@ export default function TablesPage() {
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [customerHostname, setCustomerHostname] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      // Cached archive data saves owners a second request; the floor grid is
-      // still filtered below, so waiter/cashier surfaces are unchanged.
       const data = await apiFetch<Table[]>(
         canConfigure ? "/api/v1/tables?include_archived=true" : "/api/v1/tables"
       );
@@ -92,21 +87,6 @@ export default function TablesPage() {
     const timer = window.setInterval(() => void load(), 5000);
     return () => window.clearInterval(timer);
   }, [load]);
-
-  // Plan 07: QR codes must encode the tenant's locked customer hostname
-  // (e.g. https://harbor-table.platform.com/t/<token>) so the printed badge
-  // keeps working when guests scan it on that address.
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<RestaurantInfo>("/api/v1/restaurant")
-      .then((info) => {
-        if (!cancelled && info.customer_hostname) setCustomerHostname(info.customer_hostname);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const floorTables = useMemo(
     () => tables.filter((table) => table.status !== "ARCHIVED"),
@@ -129,7 +109,7 @@ export default function TablesPage() {
         const images: QrImage[] = [];
         for (const table of floorTables) {
           if (!table.qr_token) continue;
-          const url = buildUrl(table, customerHostname);
+          const url = buildCustomerQrUrl(table.qr_token);
           const dataUrl = await QRCode.toDataURL(url, {
             margin: 1,
             width: 320,
@@ -148,7 +128,7 @@ export default function TablesPage() {
     return () => {
       cancelled = true;
     };
-  }, [qrSheetOpen, floorTables, customerHostname]);
+  }, [qrSheetOpen, floorTables]);
 
   async function rotate(tableId: string, displayName: string) {
     const confirmed = window.confirm(

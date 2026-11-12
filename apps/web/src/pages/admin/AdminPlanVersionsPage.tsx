@@ -57,11 +57,9 @@ export default function AdminPlanVersionsPage() {
   async function loadPlan() {
     try {
       setLoading(true);
-      const res = await platformFetch(`/api/platform/plans/${plan_id}`);
-      if (!res.ok) throw new Error("Failed to load plan");
-      
+      const data = await platformFetch(`/api/platform/plans/${plan_id}`);
       setPlan(data);
-      setVersions(data.versions || []);
+      setVersions(data?.versions || []);
     } catch (err: any) {
       setError(err.message || "Failed to load plan");
     } finally {
@@ -167,7 +165,7 @@ export default function AdminPlanVersionsPage() {
       <div className="pf-panel" style={{ padding: 24, maxWidth: 900 }}>
         <h1 style={{ marginTop: 0 }}>Plan Versions</h1>
         {error ? <p className="pf-error">{error}</p> : <p>Plan not found.</p>}
-        <button onClick={() => navigate("/admin/plans")}>Back to Plans</button>
+        <button onClick={() => navigate("/plans")}>Back to Plans</button>
       </div>
     );
   }
