@@ -30,6 +30,7 @@ operations -> kitchen : models
 operations -> notifications : services
 operations -> tenancy : models
 payments -> audit : services
+platform -> tenancy : services
 payments -> tenancy : models
 reports -> audit : models
 reports -> operations : models

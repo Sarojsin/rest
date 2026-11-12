@@ -1,0 +1,14 @@
+2. File naming and responsibility rules
+These are the rules every developer should follow.
+File	What it MUST contain	What it MUST NOT contain
+models.py	SQLAlchemy database models, columns, relationships, indexes	API endpoints, business workflows
+schemas.py	Pydantic request/response schemas, validation	SQL queries, database operations
+repository.py	Database CRUD, queries, persistence	HTTP logic, business decisions
+service.py	Business logic, calculations, workflows	HTTP request/response handling
+router.py	API endpoints, status codes, response mapping	Complex business logic, raw SQL
+dependencies.py	FastAPI dependency providers, module-specific injection	Business workflows
+exceptions.py	Custom module exceptions	Database queries, HTTP endpoints
+constants.py	Fixed configuration values and constants	Runtime business logic
+enums.py	Statuses, types, and enumerated values	Database query logic
+policies.py	Authorization and business access policies	HTTP endpoint definitions
+tests/	Automated tests for the module	Production application logic
