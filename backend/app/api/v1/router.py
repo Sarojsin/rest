@@ -45,3 +45,5 @@ api_router.include_router(employees_router, prefix="/employees")
 api_router.include_router(loyalty_router, prefix="/loyalty")
 api_router.include_router(reviews_router, prefix="/reviews")
 api_router.include_router(subscriptions_router, prefix="/subscriptions")
+from app.api.v1.auth_bridge import router as auth_bridge_router 
+api_router.include_router(auth_bridge_router) 
