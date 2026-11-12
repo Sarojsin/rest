@@ -24,12 +24,60 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "pa0019"
-down_revision = "pa0018"
+down_revision = "pa0019b_add_inventory_tables"
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
+    # ── create tables if they don't exist (fresh deployment) ─────────────────────
+    op.create_table(
+        "ingredients",
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("restaurant_id", postgresql.UUID(as_uuid=True), nullable=False, index=True),
+        sa.Column("sku", sa.String(64), nullable=True),
+        sa.Column("category", sa.String(40), nullable=True),
+        sa.Column("base_unit", sa.String(32), nullable=False, server_default="pieces"),
+        sa.Column("unit_conversions", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("cost_per_unit_minor", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("storage_location", sa.String(80), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["restaurant_id"], ["restaurants.id"], name=op.f("fk_ingredients_restaurant_id_restaurants")),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_ingredients")),
+        sa.UniqueConstraint("restaurant_id", "sku", name="uq_ingredients_restaurant_sku"),
+    )
+    op.create_table(
+        "purchase_orders",
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("restaurant_id", postgresql.UUID(as_uuid=True), nullable=False, index=True),
+        sa.Column("purchase_date", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("bill_photo_urls", postgresql.ARRAY(sa.Text()), nullable=True),
+        sa.Column("supplier_is_walk_in", sa.Boolean(), nullable=False, server_default="false"),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["restaurant_id"], ["restaurants.id"], name=op.f("fk_purchase_orders_restaurant_id_restaurants")),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_purchase_orders")),
+    )
+    op.create_table(
+        "stock_movements",
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("restaurant_id", postgresql.UUID(as_uuid=True), nullable=False, index=True),
+        sa.Column("idempotency_key", sa.String(128), nullable=True),
+        sa.Column("previous_balance", sa.Integer(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["restaurant_id"], ["restaurants.id"], name=op.f("fk_stock_movements_restaurant_id_restaurants")),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_stock_movements")),
+    )
+    op.create_index(
+        "ix_stock_movements_idempotency_key",
+        "stock_movements",
+        ["idempotency_key"],
+        unique=True,
+        postgresql_nulls_not_distinct=True,
+    )
+
     # ── ingredients ─────────────────────────────────────────────────────────
     op.add_column("ingredients", sa.Column("sku", sa.String(64), nullable=True))
     op.add_column("ingredients", sa.Column("category", sa.String(40), nullable=True))
