@@ -73,5 +73,5 @@ mounts:
   - name: postgres_data
     source: postgres_volume
     mountPath: /var/lib/postgresql/data
--e '      - key: PLATFORM_BOOTSTRAP_EMAIL\n        value: sarojsinghdhami91@gmail.com'  
--e '      - key: PLATFORM_BOOTSTRAP_PASSWORD\n        value: Saroja2312345' 
+-e '      - key: PLATFORM_BOOTSTRAP_EMAIL\n        value: platform@harbor.example'  
+-e '      - key: PLATFORM_BOOTSTRAP_PASSWORD\n        value: PlatformOwner!1' 
