@@ -51,7 +51,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <PlatformAuthProvider>
         <Routes>
           {/* Public routes - no authentication required */}
-          <Route path="/plans" element={<AdminPublicPlansPage />} />
+          <Route path="/pricing" element={<AdminPublicPlansPage />} />
           <Route path="/register" element={<AdminPublicRegisterPage />} />
           <Route path="/register-success" element={<AdminRegisterSuccessPage />} />
           <Route path="/login" element={<AdminLoginPage />} />
@@ -161,6 +161,14 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 element={
                   <RequirePermission permission="tenant.view">
                     <AdminOnboardingPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="/plans"
+                element={
+                  <RequirePermission permission="plan.view">
+                    <AdminPlansPage />
                   </RequirePermission>
                 }
               />

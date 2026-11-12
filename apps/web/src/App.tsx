@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider } from "./lib/auth";
 import { ThemeProvider } from "./styles/ThemeProvider";
+import { setupForegroundListener } from "./lib/fcm";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import AcceptInvitationPage from "./pages/staff/AcceptInvitationPage";
@@ -55,10 +56,87 @@ function ScrollToTop() {
 }
 
 export default function App() {
+  const [push, setPush] = useState<{ title: string; body: string } | null>(null);
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Create audio element once on mount
+    const audioEl = new Audio("/notification.wav");
+    audioEl.preload = "auto";
+    audioEl.volume = 0.5;
+    setAudio(audioEl);
+
+    return () => {
+      audioEl.pause();
+      audioEl.src = "";
+    };
+  }, []);
+
+  // Show an in-app toast when a push arrives while the tab is open.
+  useEffect(() => {
+    const unsubscribe = setupForegroundListener(({ title, body }) => {
+      setPush({ title, body });
+      window.setTimeout(() => setPush(null), 6000);
+      
+      // Play notification sound if user has interacted with the page
+      if (audio) {
+        try {
+          audio.play().catch((err) => {
+            // Silently ignore autoplay policy errors
+            if (err.name !== "NotAllowedError") {
+              console.debug("[App] Could not play notification sound:", err);
+            }
+          });
+        } catch {
+          // Ignore any other errors
+        }
+      }
+    });
+    return () => unsubscribe?.();
+  }, [audio]);
+
   return (
     <ThemeProvider>
       <AuthProvider>
         <ScrollToTop />
+        {push && (
+          <div
+            role="status"
+            style={{
+              position: "fixed",
+              top: 16,
+              right: 16,
+              zIndex: 9999,
+              maxWidth: 360,
+              padding: "12px 16px",
+              borderRadius: 10,
+              background: "#0f1b2d",
+              color: "#fff",
+              boxShadow: "0 8px 24px rgba(0,0,0,.28)",
+              fontSize: 14,
+            }}
+          >
+            <strong style={{ display: "block", marginBottom: 2 }}>{push.title}</strong>
+            <span style={{ opacity: 0.85 }}>{push.body}</span>
+            <button
+              type="button"
+              onClick={() => setPush(null)}
+              style={{
+                position: "absolute",
+                top: 4,
+                right: 8,
+                background: "transparent",
+                border: 0,
+                color: "#fff",
+                fontSize: 16,
+                cursor: "pointer",
+              }}
+              aria-label="Dismiss notification"
+            >
+              ×
+            </button>
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />

@@ -19,8 +19,8 @@ export function setToken(token: string | null): void {
 }
 
 const client = createApiClient({
-  // Same origin: Vite proxies /api and /health to the FastAPI service.
-  baseUrl: "",
+  // Same origin in dev (Vite proxies /api), or the Render backend URL in prod.
+  baseUrl: import.meta.env.VITE_API_URL ?? "",
   getToken,
 });
 
