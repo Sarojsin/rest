@@ -1,0 +1,42 @@
+services:
+  backend:
+    image: python:3.11-slim
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgresql://postgres:tara@localhost:5432/restaurant
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-secret-key-change-this
+      - ALLOWED_HOSTS=restaurant-system.com,localhost
+    ports:
+      - "8000:8000"
+    command: >-
+      sh -c "
+        pip install --no-cache-dir -r requirements.txt
+        alembic upgrade head
+        uvicorn app.main:app --host 0.0.0.0 --port 8000
+      "
+    volumes:
+      - ./backend:/app
+      - ./backend/alembic/versions:/app/alembic/versions
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  database:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=restaurant
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=tara
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  postgres_data:

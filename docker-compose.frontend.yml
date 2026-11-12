@@ -1,0 +1,18 @@
+services:
+  frontend:
+    image: node:18-alpine
+    working_dir: /app
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=https://api.restaurant-system.com
+    ports:
+      - "3000:3000"
+    command: >-
+      sh -c "
+        npm ci --production || npm install
+        npm run build
+        npm start
+      "
+    volumes:
+      - ./apps/web:/app
+      - node_modules:/app/node_modules

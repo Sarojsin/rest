@@ -1,0 +1,17 @@
+frontend:
+  type: web
+  name: restaurant-frontend
+  env: node
+  plan: free
+  buildCommand: "cd apps/web && npm ci && npm run build"
+  startCommand: "cd apps/web && npm start"
+  envVars:
+    NODE_ENV:
+      value: "production"
+    REACT_APP_API_URL:
+      value: "https://api.restaurant-system.com"
+  healthCheck:
+    path: "/"
+  domain:
+    - "restaurant-system.com"
+  autoDeploy: true

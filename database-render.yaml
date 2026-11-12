@@ -1,0 +1,10 @@
+database:
+  type: web
+  name: restaurant-database
+  env: postgresql
+  plan: free
+  autoDeploy: true
+  volume:
+    source: postgres_data
+    target: "/var/lib/postgresql/data"
+    size: 1

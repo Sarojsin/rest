@@ -69,9 +69,11 @@ export type ApiClientConfig = {
   getToken: () => string | null | Promise<string | null>;
   /**
    * Called when an authenticated request is rejected with 401 so the app can
-   * drop the session. Never fired for unauthenticated requests (e.g. login).
+   * refresh its credentials or drop the session. May be async: the client
+   * waits for it and retries the request once when the token changed. Never
+   * fired for unauthenticated requests (e.g. login).
    */
-  onUnauthorized?: () => void;
+  onUnauthorized?: () => void | Promise<void>;
   /** Default request timeout. */
   timeoutMs?: number;
 };
@@ -124,12 +126,35 @@ export type Me = {
   email: string;
   display_name: string;
   membership: Membership;
+  memberships: Membership[];
+  active_branch_id: string | null;
 };
 
 export type LoginResponse = {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   user: Me;
+};
+
+export type MFAChallengeResponse = {
+  mfa_required: boolean;
+  mfa_token: string;
+  user_id: string;
+  membership_id: string;
+  restaurant_id: string;
+};
+
+export type InvitationValidateResponse = {
+  valid: boolean;
+  email?: string;
+  restaurant_name?: string;
+  expires_at?: string;
+};
+
+export type InvitationAcceptRequest = {
+  token: string;
+  password: string;
 };
 
 /* -------------------------------------------------------------------------
@@ -418,9 +443,16 @@ export type Ingredient = {
   id: string;
   name: string;
   code: string | null;
+  sku: string | null;
   unit: string;
+  base_unit: string;
+  category: string | null;
+  unit_conversions: Record<string, number> | null;
   current_stock: number;
   minimum_stock: number;
+  cost_per_unit_minor: number;
+  storage_location: string | null;
+  branch_id: string | null;
   status: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
   supplier_id: string | null;
   supplier_name?: string | null;
@@ -470,14 +502,82 @@ export type PurchaseOrder = {
 export type StockMovement = {
   id: string;
   ingredient_id: string;
-  movement_type: "RECEIVE" | "ADJUST" | "DEDUCT" | "WASTE";
+  movement_type:
+    | "RECEIVE"
+    | "ADJUST"
+    | "DEDUCT"
+    | "WASTE"
+    | "TRANSFER_IN"
+    | "TRANSFER_OUT";
   quantity: number;
+  previous_balance: number | null;
   new_balance: number;
   reason: string | null;
   reference_type: string | null;
   reference_id: string | null;
+  batch_id: string | null;
+  branch_id: string | null;
+  idempotency_key: string | null;
   recorded_by: string | null;
   created_at: string;
+};
+
+export type IngredientBatch = {
+  id: string;
+  ingredient_id: string;
+  ingredient_name?: string | null;
+  batch_no: string;
+  expiry_date: string | null;
+  quantity: number;
+  cost_per_unit_minor: number;
+  is_expired: boolean;
+  created_at: string;
+};
+
+export type StockCount = {
+  id: string;
+  branch_id: string | null;
+  count_date: string;
+  status: "DRAFT" | "COMPLETED";
+  notes: string | null;
+  items: StockCountItem[];
+  created_at: string;
+};
+
+export type StockCountItem = {
+  id: string;
+  ingredient_id: string;
+  ingredient_name?: string | null;
+  expected_qty: number;
+  counted_qty: number;
+  variance_qty: number;
+  created_at: string;
+};
+
+export type LowStockReport = {
+  restaurant_id: string;
+  low_stock_count: number;
+  ingredients: Array<{
+    id: string;
+    name: string;
+    sku: string | null;
+    current_stock: number;
+    minimum_stock: number;
+    unit: string;
+    storage_location: string | null;
+  }>;
+};
+
+export type ConsumptionReportEntry = {
+  ingredient_id: string;
+  ingredient_name: string | null;
+  total_deducted: number;
+  unit: string;
+};
+
+export type ConsumptionReport = {
+  restaurant_id: string;
+  consumption: ConsumptionReportEntry[];
 };
 
 export type RecipeIngredient = {
@@ -846,15 +946,25 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     if (options.signal?.aborted) onCallerAbort();
 
     try {
-      const response = await fetch(absoluteUrl(path), {
-        method: options.method ?? "GET",
-        headers,
-        body: options.body,
-        signal: controller.signal,
-      });
+      const send = (bearer?: string): Promise<Response> =>
+        fetch(absoluteUrl(path), {
+          method: options.method ?? "GET",
+          headers: bearer ? { ...headers, Authorization: `Bearer ${bearer}` } : headers,
+          body: options.body,
+          signal: controller.signal,
+        });
+
+      let response = await send(token ?? undefined);
 
       if (response.status === 401 && token) {
-        config.onUnauthorized?.();
+        // Give the app one chance to refresh its credentials, then retry this
+        // request with the new token. Without the retry the caller would see a
+        // 401 even though a refresh token was still valid (e.g. cold start).
+        await config.onUnauthorized?.();
+        const refreshed = await config.getToken();
+        if (refreshed && refreshed !== token) {
+          response = await send(refreshed);
+        }
       }
 
       if (!response.ok) {

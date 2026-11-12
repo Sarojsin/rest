@@ -15,3 +15,9 @@ coverage/
 apps/web/dist/
 *.log
 *.tsbuildinfo
+
+# FCM server credentials — never commit service-account keys
+*service-account*.json
+
+# Local notes that contain plaintext dev credentials — never commit
+tt.txt

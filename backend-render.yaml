@@ -1,0 +1,21 @@
+backend:
+  type: web
+  name: restaurant-backend
+  env: python
+  plan: free
+  buildCommand: "pip install --no-cache-dir -r requirements.txt"
+  startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+  envVars:
+    DATABASE_URL:
+      value: postgresql://postgres:tara@postgres:5432/restaurant
+    REDIS_URL:
+      value: redis://redis:6379
+    SECRET_KEY:
+      value: "${SECRET_KEY}"
+    ALLOWED_HOSTS:
+      value: "restaurant-system.com,localhost"
+  healthCheck:
+    path: "/health"
+  domain:
+    - "api.restaurant-system.com"
+  autoDeploy: true
