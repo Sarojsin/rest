@@ -16,8 +16,136 @@ apps/web/dist/
 *.log
 *.tsbuildinfo
 
+# Backend build artifacts
+backend/__pycache__/
+backend/*.pyc
+backend/*.so
+backend/*.pyd
+backend/django_view.py
+backend/*.egg-info
+backend/.coverage
+backend/htmlcov/
+
+# Frontend build artifacts
+apps/web/node_modules/
+apps/web/.vite/
+apps/web/build/
+apps/web/.next/
+apps/web/.nuxt/
+apps/web/.expo/
+apps/web/package-lock.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# System temporary files
+*tmp
+*.swp
+*.swo
+*~
+
+# Additional log files
+backend/*.log
+frontend/*.log
+
+# Environment-specific files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Docker files (for local development)
+.dockerignore
+Dockerfile*
+docker-compose*.yml
+
+# Python virtual environments
+.env
+.venv*
+
+# Git credentials
+.git-credentials
+
+# SSH keys
+*.pem
+*.key
+
+# Database dumps
+dumps/*.sql
+
+# Coverage reports
+coverage.xml
+
+# Test reports
+junit*.xml
+
+# Vercel and Netlify files
+.vercel
+.netlify
+
+# CI/CD files
+.github/workflows/*
+
+# Security scan results
+*.scan
+
+# Temporary build files
+*.bak
+*.tmp
+*.temp
+
+# Vim swap files
+.*.swp
+.*.swo
+
+# Eclipse workspace files
+.cproject
+.c_tags
+
+# Jupyter notebook files
+.ipynb_checkpoints
+
+# Log files from Windows Event Log
+*.evt
+*.evtx
+
+# Adobe Font Metrics
+*.afm
+
+# Mac OS-specific files
+.DS_Store
+
+# Windows shortcuts
+*.lnk
+
+# Package manager cache directories (e.g., npm, pip, cargo, etc.)
+.vscode
+.idea
+.vagrant
+*.log
+*.pyc
+
+# Sensitive data (already present)
 # FCM server credentials — never commit service-account keys
 *service-account*.json
 
 # Local notes that contain plaintext dev credentials — never commit
 tt.txt
+
+# Important: Never commit credentials or secrets
+*.json
+*.key
+*.pem
+*.crt
+*.p12
+*.der
+*.cer
+
+# Configuration files that may contain credentials
+docker-compose*.yml
+docker-compose*
+Dockerfile*
+
