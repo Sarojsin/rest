@@ -448,3 +448,5 @@ If you encounter issues during deployment:
 3. @{ai-assistant} assistance: Ask for specific troubleshooting help
 
 This deployment guide will help you successfully launch your restaurant management system on Render. The key is to follow each step carefully and thoroughly test before going live.
+
+lol
