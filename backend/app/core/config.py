@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     secret_key: str = "dev-only-change-me-not-for-production"
 
     # Database
-    database_url: str = "postgresql+psycopg2://postgres:tara@localhost:5432/restaurant"
+    database_url: str = "postgresql+psycopg://postgres:tara@localhost:5432/restaurant"
     access_token_minutes: int = 480
 
     # Redis (for refresh tokens, rate limiting, etc.)
