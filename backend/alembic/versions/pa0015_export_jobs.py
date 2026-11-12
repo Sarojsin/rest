@@ -49,6 +49,7 @@ def upgrade() -> None:
         "platform_export_jobs",
         ["restaurant_id"],
         unique=False,
+        if_not_exists=True,
     )
     op.create_index(
         op.f("ix_platform_export_jobs_status"),
