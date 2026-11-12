@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { View, Text } from "react-native";
+import { Alert, View, Text } from "react-native";
 
 import { Banner, Button, Card, KeyValue, Screen, SectionLabel, Subtitle, Title } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -30,7 +30,7 @@ function label(permission: string): string {
 }
 
 export function AccountScreen() {
-  const { me, signOut } = useAuth();
+  const { me, signOut, switchMembership } = useAuth();
   const theme = useTheme();
   const c = theme.color;
   const [busy, setBusy] = useState(false);
@@ -49,7 +49,7 @@ export function AccountScreen() {
     .join("");
 
   return (
-    <Screen>
+    <Screen testID="account-screen">
       <View style={{ gap: space[5] }}>
         <View>
           <Title>Account</Title>
@@ -126,6 +126,61 @@ export function AccountScreen() {
           </Banner>
         ) : null}
 
+        {/* Membership / Branch Switcher */}
+        {(me.memberships.length > 1 || (me.active_branch_id && me.memberships.length > 0)) ? (
+          <View style={{ gap: space[2] }}>
+            <SectionLabel>Restaurant & Branch</SectionLabel>
+            <Card>
+              <View style={{ gap: space[3] }}>
+                <View>
+                  <Text style={{ fontSize: text.xs, fontWeight: "700", color: c.muted }}>Current</Text>
+                  <KeyValue label="Restaurant" value={me.membership.restaurant_name} />
+                  <KeyValue label="Role" value={me.membership.role} />
+                  {me.active_branch_id ? <KeyValue label="Branch" value={me.active_branch_id.slice(0, 8)} /> : null}
+                </View>
+                {me.memberships.length > 1 ? (
+                  <View style={{ gap: space[2] }}>
+                    <Text style={{ fontSize: text.xs, fontWeight: "700", color: c.muted }}>Switch Membership</Text>
+                    {me.memberships
+                      .filter((m) => m.id !== me.membership.id)
+                      .map((membership) => (
+                        <Button
+                          key={membership.id}
+                          label={`${membership.restaurant_name} · ${membership.role}`}
+                          variant="secondary"
+                          onPress={() => {
+                            setBusy(true);
+                            void switchMembership(membership.id)
+                              .finally(() => setBusy(false));
+                          }}
+                          disabled={busy}
+                        />
+                      ))}
+                  </View>
+                ) : null}
+                {me.membership.role === "owner" && me.memberships.length > 0 ? (
+                  <View style={{ gap: space[2] }}>
+                    <Text style={{ fontSize: text.xs, fontWeight: "700", color: c.muted }}>
+                      Branch Scope (Owner only)
+                    </Text>
+                    <Button
+                      label={me.active_branch_id ? `Branch: ${me.active_branch_id.slice(0, 8)}` : "All branches (organization-wide)"}
+                      variant="secondary"
+                      onPress={() => {
+                        Alert.alert(
+                          "Branch scope",
+                          "Switching branch scope requires re-authentication. Sign out and sign in again to change branch context.",
+                          [{ text: "OK" }]
+                        );
+                      }}
+                    />
+                  </View>
+                ) : null}
+              </View>
+            </Card>
+          </View>
+        ) : null}
+
         {isManagerOrOwner ? (
           <View style={{ gap: space[2] }}>
             <SectionLabel>Switch station</SectionLabel>
@@ -162,6 +217,7 @@ export function AccountScreen() {
         ) : null}
 
         <Button
+          testID="sign-out-button"
           label={busy ? "Signing out…" : "Sign out"}
           variant="secondary"
           icon="log-out-outline"

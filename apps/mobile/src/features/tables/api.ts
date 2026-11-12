@@ -8,16 +8,29 @@ import { useAuth } from "@/lib/auth";
 
 /** Query keys are tenant-scoped so a membership change can never reuse data. */
 export const tableKeys = {
-  all: (restaurantId: string) => ["tables", restaurantId] as const,
+  all: (restaurantId: string, branchId: string | null) => ["tables", restaurantId, branchId] as const,
 };
+
+function useRestaurantContext() {
+  const { getRestaurantId, getBranchId } = useAuth();
+  return {
+    restaurantId: getRestaurantId(),
+    branchId: getBranchId(),
+  };
+}
 
 export function useTables(options?: { refetchInterval?: number }) {
   const { me } = useAuth();
-  const restaurantId = me?.membership.restaurant_id ?? "anonymous";
+  const { restaurantId, branchId } = useRestaurantContext();
   return useQuery({
-    queryKey: tableKeys.all(restaurantId),
-    queryFn: () => api<Table[]>("/api/v1/tables"),
-    enabled: Boolean(me),
+    queryKey: tableKeys.all(restaurantId ?? "", branchId),
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (branchId) params.set("branch_id", branchId);
+      const query = params.toString();
+      return api<Table[]>(`/api/v1/tables${query ? `?${query}` : ""}`);
+    },
+    enabled: Boolean(me && restaurantId),
     refetchInterval: options?.refetchInterval ?? 15_000,
   });
 }

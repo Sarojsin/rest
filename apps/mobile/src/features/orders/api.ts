@@ -7,58 +7,67 @@ import { useAuth } from "@/lib/auth";
 import { tableKeys } from "@/features/tables/api";
 
 export const orderKeys = {
-  list: (restaurantId: string, status: string) => ["orders", restaurantId, status] as const,
-  detail: (restaurantId: string, id: string) => ["order", restaurantId, id] as const,
-  calls: (restaurantId: string, status: string) => ["service-calls", restaurantId, status] as const,
+  list: (restaurantId: string, branchId: string | null, status: string) => ["orders", restaurantId, branchId, status] as const,
+  detail: (restaurantId: string, branchId: string | null, id: string) => ["order", restaurantId, branchId, id] as const,
+  calls: (restaurantId: string, branchId: string | null, status: string) => ["service-calls", restaurantId, branchId, status] as const,
   menu: (restaurantId: string) => ["menu", restaurantId] as const,
 };
 
-function useRestaurantId(): string {
-  const { me } = useAuth();
-  return me?.membership.restaurant_id ?? "anonymous";
+function useRestaurantContext() {
+  const { getRestaurantId, getBranchId } = useAuth();
+  return {
+    restaurantId: getRestaurantId(),
+    branchId: getBranchId(),
+  };
 }
 
 export function useOrders(status: string, options?: { enabled?: boolean; refetchInterval?: number }) {
   const { me } = useAuth();
-  const restaurantId = useRestaurantId();
+  const { restaurantId, branchId } = useRestaurantContext();
   return useQuery({
-    queryKey: orderKeys.list(restaurantId, status),
-    queryFn: () => api<Order[]>(`/api/v1/orders?status=${encodeURIComponent(status)}`),
-    enabled: Boolean(me) && (options?.enabled ?? true),
+    queryKey: orderKeys.list(restaurantId ?? "", branchId, status),
+    queryFn: () => {
+      const params = new URLSearchParams({ status });
+      if (branchId) params.set("branch_id", branchId);
+      return api<Order[]>(`/api/v1/orders?${params.toString()}`);
+    },
+    enabled: Boolean(me && restaurantId) && (options?.enabled ?? true),
     refetchInterval: options?.refetchInterval ?? 10_000,
   });
 }
 
 export function useOrder(orderId: string | undefined) {
   const { me } = useAuth();
-  const restaurantId = useRestaurantId();
+  const { restaurantId, branchId } = useRestaurantContext();
   return useQuery({
-    queryKey: orderKeys.detail(restaurantId, orderId ?? "none"),
+    queryKey: orderKeys.detail(restaurantId ?? "", branchId, orderId ?? "none"),
     queryFn: () => api<Order>(`/api/v1/orders/${orderId}`),
-    enabled: Boolean(me && orderId),
+    enabled: Boolean(me && orderId && restaurantId),
   });
 }
 
 export function useServiceCalls(status = "REQUESTED") {
   const { me } = useAuth();
-  const restaurantId = useRestaurantId();
+  const { restaurantId, branchId } = useRestaurantContext();
   return useQuery({
-    queryKey: orderKeys.calls(restaurantId, status),
-    queryFn: () => api<ServiceCall[]>(`/api/v1/service-calls?status=${encodeURIComponent(status)}`),
-    enabled: Boolean(me),
+    queryKey: orderKeys.calls(restaurantId ?? "", branchId, status),
+    queryFn: () => {
+      const params = new URLSearchParams({ status });
+      if (branchId) params.set("branch_id", branchId);
+      return api<ServiceCall[]>(`/api/v1/service-calls?${params.toString()}`);
+    },
+    enabled: Boolean(me && restaurantId),
     refetchInterval: 10_000,
   });
 }
 
 export function useMenu() {
   const { me } = useAuth();
-  const restaurantId = useRestaurantId();
+  const { restaurantId } = useRestaurantContext();
   return useQuery({
-    queryKey: orderKeys.menu(restaurantId),
+    queryKey: orderKeys.menu(restaurantId ?? ""),
     queryFn: () => api<MenuCategory[]>("/api/v1/menu"),
-    enabled: Boolean(me),
-    // The menu changes rarely; refetching it every ten seconds wastes the
-    // kitchen tablet's battery for no benefit.
+    enabled: Boolean(me && restaurantId),
     staleTime: 60_000,
   });
 }
@@ -66,11 +75,11 @@ export function useMenu() {
 /** QR orders and waiter orders land in the same kitchen queue. */
 function useInvalidateFloor() {
   const queryClient = useQueryClient();
-  const restaurantId = useRestaurantId();
+  const { restaurantId, branchId } = useRestaurantContext();
   return () => {
-    void queryClient.invalidateQueries({ queryKey: ["orders", restaurantId] });
-    void queryClient.invalidateQueries({ queryKey: tableKeys.all(restaurantId) });
-    void queryClient.invalidateQueries({ queryKey: ["service-calls", restaurantId] });
+    void queryClient.invalidateQueries({ queryKey: ["orders", restaurantId, branchId] });
+    void queryClient.invalidateQueries({ queryKey: tableKeys.all(restaurantId ?? "", branchId) });
+    void queryClient.invalidateQueries({ queryKey: ["service-calls", restaurantId, branchId] });
   };
 }
 
@@ -137,6 +146,25 @@ export function useCreateOrder() {
           customer_note: input.customerNote,
         }),
       }),
+    onSuccess: invalidate,
+  });
+}
+
+// Plan 08: Order claim & escalate
+export function useClaimOrder() {
+  const invalidate = useInvalidateFloor();
+  return useMutation({
+    mutationFn: (orderId: string) =>
+      api<Order>(`/api/v1/orders/${orderId}/claim`, { method: "POST" }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useEscalateOrder() {
+  const invalidate = useInvalidateFloor();
+  return useMutation({
+    mutationFn: (orderId: string) =>
+      api<Order>(`/api/v1/orders/${orderId}/escalate`, { method: "POST" }),
     onSuccess: invalidate,
   });
 }

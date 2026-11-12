@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { forwardRef } from "react";
+import { forwardRef, memo, useCallback } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -33,6 +33,7 @@ export function Screen({
   edges = ["top", "left", "right"],
   refreshing,
   onRefresh,
+  testID,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
@@ -41,6 +42,7 @@ export function Screen({
   edges?: ("top" | "right" | "bottom" | "left")[];
   refreshing?: boolean;
   onRefresh?: () => void;
+  testID?: string;
 }) {
   const theme = useTheme();
   const body = (
@@ -48,6 +50,7 @@ export function Screen({
   );
   return (
     <SafeAreaView
+      testID={testID}
       edges={edges}
       style={[styles.flex, { backgroundColor: theme.color.bg }]}
     >
@@ -77,26 +80,29 @@ export function Screen({
   );
 }
 
-export function Card({
+const CardBase = ({
   children,
   style,
   onPress,
   accessibilityLabel,
+  testID,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   accessibilityLabel?: string;
-}) {
+  testID?: string;
+}) => {
   const theme = useTheme();
   const base: StyleProp<ViewStyle> = [
     styles.card,
     { backgroundColor: theme.color.surface, borderColor: theme.color.line },
     style,
   ];
-  if (!onPress) return <View style={base}>{children}</View>;
+  if (!onPress) return <View testID={testID} style={base}>{children}</View>;
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
@@ -105,18 +111,22 @@ export function Card({
       {children}
     </Pressable>
   );
-}
+};
 
-export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
+export const Card = memo(CardBase);
+
+const DividerBase = ({ style }: { style?: StyleProp<ViewStyle> }) => {
   const theme = useTheme();
   return <View style={[{ height: 1, backgroundColor: theme.color.line }, style]} />;
-}
+};
+
+export const Divider = memo(DividerBase);
 
 /* -------------------------------------------------------------------------
    Text
    ------------------------------------------------------------------------- */
 
-export function Title({ children }: { children: React.ReactNode }) {
+const TitleBase = ({ children }: { children: React.ReactNode }) => {
   const theme = useTheme();
   return (
     <Text
@@ -126,18 +136,22 @@ export function Title({ children }: { children: React.ReactNode }) {
       {children}
     </Text>
   );
-}
+};
 
-export function Subtitle({ children }: { children: React.ReactNode }) {
+export const Title = memo(TitleBase);
+
+const SubtitleBase = ({ children }: { children: React.ReactNode }) => {
   const theme = useTheme();
   return (
     <Text style={{ fontSize: text.base, color: theme.color.muted, lineHeight: 21 }}>
       {children}
     </Text>
   );
-}
+};
 
-export function SectionLabel({ children }: { children: React.ReactNode }) {
+export const Subtitle = memo(SubtitleBase);
+
+const SectionLabelBase = ({ children }: { children: React.ReactNode }) => {
   const theme = useTheme();
   return (
     <Text
@@ -153,14 +167,18 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
       {children}
     </Text>
   );
-}
+};
 
-export function Muted({ children }: { children: React.ReactNode }) {
+export const SectionLabel = memo(SectionLabelBase);
+
+const MutedBase = ({ children }: { children: React.ReactNode }) => {
   const theme = useTheme();
   return (
     <Text style={{ fontSize: text.sm, color: theme.color.muted }}>{children}</Text>
   );
-}
+};
+
+export const Muted = memo(MutedBase);
 
 /* -------------------------------------------------------------------------
    Button
@@ -168,7 +186,7 @@ export function Muted({ children }: { children: React.ReactNode }) {
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success";
 
-export function Button({
+const ButtonBase = ({
   label,
   onPress,
   variant = "primary",
@@ -178,6 +196,7 @@ export function Button({
   busyLabel,
   fullWidth = true,
   accessibilityHint,
+  testID,
 }: {
   label: string;
   onPress: () => void;
@@ -188,7 +207,8 @@ export function Button({
   busyLabel?: string;
   fullWidth?: boolean;
   accessibilityHint?: string;
-}) {
+  testID?: string;
+}) => {
   const theme = useTheme();
   const c = theme.color;
   const palette: Record<ButtonVariant, { bg: string; fg: string; border: string }> = {
@@ -203,6 +223,7 @@ export function Button({
 
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       disabled={inert}
       accessibilityRole="button"
@@ -231,37 +252,51 @@ export function Button({
       )}
     </Pressable>
   );
-}
+};
+
+export const Button = memo(ButtonBase);
 
 /* -------------------------------------------------------------------------
    Badge / Banner
    ------------------------------------------------------------------------- */
 
-export function Badge({ status, label }: { status: string; label?: string }) {
+const BadgeBase = ({ status, label }: { status: string; label?: string }) => {
   const theme = useTheme();
   const { fg, bg } = statusColors(theme, status);
   return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
+    <View
+      accessibilityRole="status"
+      accessibilityLabel={label ?? formatStatus(status)}
+      style={[styles.badge, { backgroundColor: bg }]}
+    >
       <Text style={{ fontSize: text.xs, fontWeight: "700", color: fg }}>
         {label ?? formatStatus(status)}
       </Text>
     </View>
   );
-}
+};
 
-export function ToneBadge({ tone, label }: { tone: Tone; label: string }) {
+export const Badge = memo(BadgeBase);
+
+const ToneBadgeBase = ({ tone, label }: { tone: Tone; label: string }) => {
   const theme = useTheme();
   const { fg, bg } = toneColors(theme, tone);
   return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
+    <View
+      accessibilityRole="status"
+      accessibilityLabel={label}
+      style={[styles.badge, { backgroundColor: bg }]}
+    >
       <Text style={{ fontSize: text.xs, fontWeight: "700", color: fg }}>{label}</Text>
     </View>
   );
-}
+};
+
+export const ToneBadge = memo(ToneBadgeBase);
 
 export type BannerTone = "info" | "success" | "warn" | "danger";
 
-export function Banner({
+const BannerBase = ({
   tone = "info",
   title,
   children,
@@ -271,7 +306,7 @@ export function Banner({
   title?: string;
   children?: React.ReactNode;
   action?: React.ReactNode;
-}) {
+}) => {
   const theme = useTheme();
   const c = theme.color;
   const map: Record<BannerTone, { fg: string; bg: string; icon: IconName }> = {
@@ -284,6 +319,7 @@ export function Banner({
   return (
     <View
       accessibilityRole="alert"
+      aria-label={title}
       style={[styles.banner, { backgroundColor: t.bg, borderColor: t.fg }]}
     >
       <Ionicons name={t.icon} size={18} color={t.fg} style={{ marginTop: 1 }} />
@@ -302,13 +338,15 @@ export function Banner({
       </View>
     </View>
   );
-}
+};
+
+export const Banner = memo(BannerBase);
 
 /* -------------------------------------------------------------------------
    States
    ------------------------------------------------------------------------- */
 
-export function EmptyState({
+const EmptyStateBase = ({
   icon = "file-tray-outline",
   title,
   children,
@@ -318,10 +356,10 @@ export function EmptyState({
   title: string;
   children?: React.ReactNode;
   action?: React.ReactNode;
-}) {
+}) => {
   const theme = useTheme();
   return (
-    <View style={styles.empty}>
+    <View style={styles.empty} accessibilityLabel={title}>
       <View
         style={[
           styles.emptyIcon,
@@ -356,17 +394,26 @@ export function EmptyState({
       {action}
     </View>
   );
-}
+};
 
-export function Loading({ label = "Loading" }: { label?: string }) {
+export const EmptyState = memo(EmptyStateBase);
+
+const LoadingBase = ({ label = "Loading" }: { label?: string }) => {
   const theme = useTheme();
   return (
-    <View style={styles.loading} accessibilityRole="progressbar" accessibilityLabel={label}>
+    <View
+      style={styles.loading}
+      accessibilityRole="progressbar"
+      accessibilityLabel={label}
+      aria-label={label}
+    >
       <ActivityIndicator color={theme.color.primary} />
       <Text style={{ fontSize: text.sm, color: theme.color.muted }}>{label}</Text>
     </View>
   );
-}
+};
+
+export const Loading = memo(LoadingBase);
 
 /* -------------------------------------------------------------------------
    Inputs
@@ -405,7 +452,7 @@ export const Field = forwardRef<
   }
 );
 
-export function Stepper({
+const StepperBase = ({
   value,
   onChange,
   min = 0,
@@ -417,7 +464,7 @@ export function Stepper({
   min?: number;
   max?: number;
   label: string;
-}) {
+}) => {
   const theme = useTheme();
   const c = theme.color;
   const step = (delta: number) => {
@@ -431,6 +478,10 @@ export function Stepper({
         disabled={value <= min}
         accessibilityRole="button"
         accessibilityLabel={`Remove one ${label}`}
+        aria-label={`Remove one ${label}`}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={value}
         style={({ pressed }) => [
           styles.stepButton,
           {
@@ -459,6 +510,10 @@ export function Stepper({
         disabled={value >= max}
         accessibilityRole="button"
         accessibilityLabel={`Add one ${label}`}
+        aria-label={`Add one ${label}`}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={value}
         style={({ pressed }) => [
           styles.stepButton,
           {
@@ -472,13 +527,15 @@ export function Stepper({
       </Pressable>
     </View>
   );
-}
+};
+
+export const Stepper = memo(StepperBase);
 
 /* -------------------------------------------------------------------------
    Key/value rows
    ------------------------------------------------------------------------- */
 
-export function KeyValue({
+const KeyValueBase = ({
   label,
   value,
   emphasis,
@@ -486,10 +543,10 @@ export function KeyValue({
   label: string;
   value: string;
   emphasis?: boolean;
-}) {
+}) => {
   const theme = useTheme();
   return (
-    <View style={styles.keyValue}>
+    <View style={styles.keyValue} accessibilityLabel={`${label}: ${value}`}>
       <Text style={{ fontSize: emphasis ? text.md : text.sm, color: theme.color.muted }}>
         {label}
       </Text>
@@ -504,7 +561,9 @@ export function KeyValue({
       </Text>
     </View>
   );
-}
+};
+
+export const KeyValue = memo(KeyValueBase);
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
