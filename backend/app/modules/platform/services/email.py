@@ -17,6 +17,7 @@ import smtplib
 from email.message import EmailMessage
 from typing import Protocol
 
+import httpx
 from app.core.config import settings
 
 logger = logging.getLogger("app.platform.email")
@@ -114,6 +115,65 @@ class SmtpEmailService:
         )
 
 
+class ResendEmailService:
+    """HTTP email backend via Resend (https://resend.com).
+
+    Used when outbound SMTP is blocked (e.g. Render free tier). Requires
+    ``RESEND_API_KEY`` to be set in the environment.
+    """
+
+    def __init__(self) -> None:
+        self.api_key = settings.resend_api_key
+        self.from_email = settings.resend_from or "noreply@localhost"
+        if not self.api_key:
+            raise RuntimeError("RESEND_API_KEY is not set; cannot send email via Resend")
+
+    def send_invitation(
+        self,
+        *,
+        to_email: str,
+        to_name: str,
+        restaurant_name: str,
+        token: str,
+        accept_url: str,
+        expires_at: str,
+    ) -> None:
+        subject = f"Set up your account for {restaurant_name}"
+        body = _invitation_body(
+            restaurant_name=restaurant_name,
+            owner_name=to_name,
+            owner_email=to_email,
+            accept_url=accept_url,
+            ttl_hours=settings.invitation_ttl_hours,
+        )
+
+        with httpx.Client(timeout=15) as client:
+            resp = client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": self.from_email,
+                    "to": [to_email],
+                    "subject": subject,
+                    "text": body,
+                },
+            )
+            if resp.status_code >= 300:
+                raise RuntimeError(
+                    f"Resend API error {resp.status_code}: {resp.text[:300]}"
+                )
+
+        logger.info(
+            "INVITATION_EMAIL sent via Resend: to=%s restaurant=%s ttl_hours=%s",
+            to_email,
+            restaurant_name,
+            settings.invitation_ttl_hours,
+        )
+
+
 def _invitation_body(
     *,
     restaurant_name: str,
@@ -143,5 +203,7 @@ def get_email_service() -> EmailService:
     backend = settings.email_backend
     if backend == "smtp":
         return SmtpEmailService()
+    if backend == "resend":
+        return ResendEmailService()
     # Default to log backend for dev / tests.
     return LogEmailService()

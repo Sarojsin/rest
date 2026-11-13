@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = ""
     smtp_starttls: bool = True
+    # HTTP email API backends (used when Render blocks outbound SMTP).
+    resend_api_key: str = ""
+    resend_from: str = "noreply@localhost"
     invitation_base_url: str = ""
     invitation_ttl_hours: int = 72
 

@@ -1389,3 +1389,100 @@ def anonymize_tenant(
     }
 
 
+@router.post("/tenants/{tenant_id}/resend-invitation")
+def resend_owner_invitation(
+    tenant_id: UUID,
+    request: Request,
+    actor: PlatformActor = Depends(
+        require_platform_permission("tenant.create")
+    ),
+    _: PlatformActor = Depends(require_platform_step_up),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Re-send the owner invitation email for an existing tenant.
+
+    Finds the most recent unused OWNER_INVITE token for the restaurant,
+    mints a fresh single-use token for the same email, and delivers the
+    invitation email via the configured backend (SMTP or Resend HTTP).
+    Email failure does not raise; the caller can deliver the link manually.
+    """
+    platform_directory.require_tenant(db, tenant_id)
+
+    old_token = db.scalar(
+        select(PlatformOneTimeToken)
+        .where(
+            PlatformOneTimeToken.restaurant_id == tenant_id,
+            PlatformOneTimeToken.purpose == "OWNER_INVITE",
+            PlatformOneTimeToken.used_at.is_(None),
+        )
+        .order_by(PlatformOneTimeToken.created_at.desc())
+    )
+    if old_token is None:
+        raise AppError(
+            404,
+            "INVITATION_NOT_FOUND",
+            "Not found",
+            "No pending owner invitation found for this tenant.",
+        )
+
+    to_email = old_token.email
+
+    old_token.used_at = now_utc()
+
+    raw_token = new_token(32)
+    expires_at = now_utc() + timedelta(hours=settings.invitation_ttl_hours)
+    db.add(
+        PlatformOneTimeToken(
+            token_hash=hash_token(raw_token),
+            purpose="OWNER_INVITE",
+            email=to_email,
+            restaurant_id=tenant_id,
+            expires_at=expires_at,
+            created_by_admin_id=actor.admin_id,
+        )
+    )
+
+    write_platform_audit(
+        db,
+        action="OWNER_INVITATION_RESENT",
+        entity_type="restaurant",
+        entity_id=str(tenant_id),
+        actor_admin_id=actor.admin_id,
+        actor_email=actor.email,
+        restaurant_id=tenant_id,
+        reason="resend owner invitation email",
+        request=request,
+        after={"owner_email": to_email, "expires_at": expires_at.isoformat()},
+    )
+    db.commit()
+
+    base_url = _invitation_base_url(request)
+    accept_url = (
+        f"{base_url}/auth/invitations/{raw_token}"
+        if base_url
+        else f"/auth/invitations/{raw_token}"
+    )
+    try:
+        email_service = get_email_service()
+        email_service.send_invitation(
+            to_email=to_email,
+            to_name=to_email.split("@")[0],
+            restaurant_name=platform_directory.require_tenant(db, tenant_id).name,
+            token=raw_token,
+            accept_url=accept_url,
+            expires_at=expires_at.isoformat(),
+        )
+        invitation_sent = True
+    except Exception:
+        logger = logging.getLogger("app.platform.email")
+        logger.exception("Failed to re-send owner invitation email to %s", to_email)
+        invitation_sent = False
+
+    return {
+        "tenant_id": str(tenant_id),
+        "owner_email": to_email,
+        "invitation_sent": invitation_sent,
+        "expires_at": expires_at.isoformat(),
+    }
+
+
