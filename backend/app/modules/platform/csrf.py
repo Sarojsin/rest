@@ -67,8 +67,23 @@ def request_origin(request: Request) -> str | None:
     return None
 
 
+def _allowed_origins(request: Request) -> list[str]:
+    allowed = list(settings.platform_admin_origin_list)
+    path = request.url.path
+    # Token-based public flows (invitations, password reset) are accepted from the
+    # tenant/staff app origin as well as the admin console origin.
+    if _is_csrf_exempt(path):
+        tenant_origin = (settings.platform_tenant_origin or "").strip().rstrip("/")
+        if tenant_origin and tenant_origin not in allowed:
+            allowed.append(tenant_origin)
+        invite_base = (settings.invitation_base_url or "").strip().rstrip("/")
+        if invite_base and invite_base not in allowed:
+            allowed.append(invite_base)
+    return allowed
+
+
 def validate_origin(request: Request) -> None:
-    allowed = settings.platform_admin_origin_list
+    allowed = _allowed_origins(request)
     origin = request_origin(request)
     if (
         not allowed
