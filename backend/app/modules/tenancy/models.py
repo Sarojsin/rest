@@ -102,7 +102,7 @@ class RestaurantMembership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
-class RestaurantMembershipBranch(UUIDPrimaryKeyMixin, Base):
+class RestaurantMembershipBranch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Links a staff membership to one or more branches.
 
     Owner memberships are implicitly organization-wide and do not need a row
