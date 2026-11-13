@@ -75,6 +75,12 @@ textarea {
   color: inherit;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+
 a {
   color: inherit;
   text-decoration-thickness: 1px;

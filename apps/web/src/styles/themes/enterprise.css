@@ -1,49 +1,41 @@
-/* Enterprise Theme - shadcn-ui compatible
-   Maps to Website Plan Enterprise Tier
-   Purple accent for enterprise differentiation
-   Full white-label capable theming */
+/* Enterprise theme — aligned with unified SaaS palette */
 [data-theme="enterprise"] {
   color-scheme: light;
 
-  --bg: #faf0ff;
+  --bg: #f1f5f9;
   --surface: #ffffff;
-  --surface-2: #f5f3ff;
-  --surface-3: #e4e6f5;
-  --ink: #1e293b;
-  --muted: #64748b;
-  --line: #cbd5e1;
-  --line-strong: #94a3b8;
+  --surface-2: #f8fafc;
+  --surface-3: #e2e8f0;
+  --ink: #0f172a;
+  --text: #0f172a;
+  --muted: #475569;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
 
-  --primary: #8b5cf6;
-  --primary-hover: #7c3aed;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
   --on-primary: #ffffff;
-  --primary-soft: #faf5ff;
+  --primary-soft: #eff6ff;
 
-  --success: #059669;
-  --success-soft: #d1fae5;
-  --warn: #f59e0b;
-  --warn-soft: #fef3c7;
-  --danger: #ef4444;
-  --danger-soft: #fecaca;
-  --info: #6366f1;
-  --info-soft: #bfdbfe;
+  --success: #16a34a;
+  --success-soft: #ecfdf3;
+  --warn: #d97706;
+  --warn-soft: #fffbeb;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --info: #2563eb;
+  --info-soft: #eff6ff;
 
-  --nav-bg: #ffffff;
-  --nav-ink: #1e293b;
-  --nav-muted: #64748b;
-  --nav-active-bg: #f5f3ff;
-  --nav-active-ink: #1e293b;
+  --nav-bg: #0f172a;
+  --nav-ink: #f8fafc;
+  --nav-muted: #94a3b8;
+  --nav-active-bg: rgba(255, 255, 255, 0.12);
+  --nav-active-ink: #ffffff;
 
-  --focus: #8b5cf6;
-  --shadow-color: rgba(0, 0, 0, 0.05);
+  --focus: #2563eb;
+  --shadow-color: rgba(15, 23, 42, 0.08);
 
   --font-body: var(--font-ui);
   --font-heading: var(--font-ui);
-
   --border-color: #e2e8f0;
-
-  /* Enterprise-specific semiotics */
-  --status-online: #10b981;
-  --status-offline: #6b7280;
-  --status-suspended: #f59e0b;
 }

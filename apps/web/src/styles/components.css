@@ -390,6 +390,15 @@
   border-color: var(--focus);
 }
 
+.field > input::placeholder,
+.field > textarea::placeholder,
+.form-row > input::placeholder,
+.form-row > textarea::placeholder,
+.menu-search input::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+
 .field-hint,
 .hint {
   color: var(--muted);

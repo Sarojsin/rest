@@ -8,13 +8,16 @@
 
 .landing {
   padding-bottom: 120px;
+  background: var(--bg);
+  color: var(--ink);
 }
 
 .landing h1,
 .landing h2,
 .landing h3 {
-  font-family: var(--font-display);
-  font-weight: 600;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .landing h2 {
@@ -23,10 +26,16 @@
 }
 
 .landing .nav .nav-cta {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
   font-weight: 600;
+}
+
+.landing .nav .nav-cta:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: var(--on-primary);
 }
 
 .hero {
@@ -34,31 +43,32 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .landing-hero {
-  color: #f7ecdc;
+  color: #f8fafc;
   background:
-    radial-gradient(900px 340px at 85% -20%, rgba(217, 101, 53, 0.28) 0%, transparent 55%),
-    radial-gradient(600px 260px at 5% 110%, rgba(217, 101, 53, 0.12) 0%, transparent 60%),
-    linear-gradient(140deg, #26221c 0%, #1b1915 60%, #25201a 100%);
+    radial-gradient(900px 340px at 90% -10%, rgba(37, 99, 235, 0.35) 0%, transparent 55%),
+    radial-gradient(700px 300px at 0% 100%, rgba(14, 165, 233, 0.18) 0%, transparent 60%),
+    linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #0b1220 100%);
   border-color: transparent;
 }
 
 .landing-hero h2 {
   font-size: var(--text-3xl);
-  line-height: 1.12;
+  line-height: 1.15;
   margin: 0 0 var(--space-4);
-  color: #fbf3e7;
+  color: #ffffff;
 }
 
 .landing-hero .kicker {
-  color: #e9a982;
+  color: #93c5fd;
 }
 
 .hero-copy {
   max-width: 52ch;
-  color: #d9cbb6;
+  color: #cbd5e1;
   line-height: 1.65;
   margin: 0 0 var(--space-5);
 }
@@ -77,7 +87,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-6);
-  color: #b9a98e;
+  color: #94a3b8;
   font-size: var(--text-sm);
 }
 
@@ -92,7 +102,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--primary);
+  background: #60a5fa;
   flex: none;
 }
 
@@ -106,13 +116,14 @@
 }
 
 .btn-hero-ghost {
-  background: transparent;
-  color: #f7ecdc;
-  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .btn-hero-ghost:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 
 .landing-section {

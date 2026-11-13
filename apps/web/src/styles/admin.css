@@ -1,17 +1,17 @@
 :root {
-  --pf-bg: #f5f6f8;
+  --pf-bg: #f1f5f9;
   --pf-surface: #ffffff;
-  --pf-border: #d9dde5;
-  --pf-text: #1c2330;
-  --pf-muted: #5b6678;
-  --pf-sidebar: #161c27;
-  --pf-sidebar-text: #c7cedb;
-  --pf-sidebar-active: #2a3446;
-  --pf-accent: #3a6df0;
-  --pf-danger: #b3261e;
-  --pf-amber: #9a6200;
-  --pf-green: #17643b;
-  --pf-radius: 8px;
+  --pf-border: #e2e8f0;
+  --pf-text: #0f172a;
+  --pf-muted: #475569;
+  --pf-sidebar: #0f172a;
+  --pf-sidebar-text: #cbd5e1;
+  --pf-sidebar-active: #1e293b;
+  --pf-accent: #2563eb;
+  --pf-danger: #dc2626;
+  --pf-amber: #d97706;
+  --pf-green: #16a34a;
+  --pf-radius: 10px;
 }
 
 * {
@@ -78,14 +78,22 @@ a {
   font-size: 13px;
 }
 
-.pf-field input {
+.pf-field input,
+.pf-field select,
+.pf-field textarea {
   width: 100%;
   padding: 9px 11px;
   border: 1px solid var(--pf-border);
   border-radius: 6px;
   font: inherit;
   background: #fff;
-  color: inherit;
+  color: var(--pf-text);
+}
+
+.pf-field input::placeholder,
+.pf-field textarea::placeholder {
+  color: var(--pf-muted);
+  opacity: 0.85;
 }
 
 .pf-field input:focus {
