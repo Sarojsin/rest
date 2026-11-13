@@ -1,222 +1,154 @@
-# Render deployment configuration for restaurant management system
-# Deploy on https://dashboard.render.com
-# MCP server connected: render (https://mcp.render.com/mcp)
-# Database: restaurent (dpg-dbqqppbrjlhs73a695vg-a, Free, Oregon)
-#    Expires: 2026-12-12 — set a calendar reminder to renew before expiration
+# Render Blueprint — reference configuration for the restaurant platform.
+#
+# IMPORTANT: the live services below were created through the Render Dashboard
+# and are NOT currently managed by a Blueprint. This file documents their real
+# settings so the infrastructure is reproducible. Applying it as a Blueprint
+# would try to create a second copy of every service (and the free plan allows
+# only one free Postgres), so read it as documentation unless you are migrating.
+#
+# Live resources (workspace lets_go / tea-d5h19p4hg0os73fltel0):
+#   backend API        restaurent          srv-dbr0qu8ae00c73bhoqu0  https://restaurent-rf9c.onrender.com
+#   customer + staff   rest-1              srv-dbquo915efls73ftjipg  https://rest-1-t4ux.onrender.com
+#   super admin        restaurant-sadmin   srv-dbr8hvec6qcc73d5m7r0  https://restaurant-sadmin.onrender.com
+#   Postgres           restaurent          dpg-dbqqppbrjlhs73a695vg-a (free, oregon, expires 2026-12-12)
+#
+# Secrets are never stored here: every sensitive key uses `sync: false`, which
+# means "set this in the Render Dashboard". Values live only on Render.
 
 services:
-  # Frontend (React/Vite) — Customer QR menu
+  # ── Backend API (FastAPI + Alembic) ───────────────────────────────────────
   - type: web
-    name: restaurant-frontend
-    env: node
+    name: restaurent
+    runtime: python
     plan: free
-    rootDir: apps/web
-    buildCommand: "npm ci && npm run build"
-    startCommand: "npx serve -s dist -l $PORT"
+    region: oregon
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: pip install --no-cache-dir -r backend/requirements.txt
+    # Alembic runs on every boot; the app then refuses to start unless the
+    # database revision matches the code's head revision.
+    startCommand: cd backend && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: REACT_APP_API_URL
-        value: https://api.restaurant-system.com
-      - key: VITE_PLATFORM_API_URL
-        fromEnv: VITE_PLATFORM_API_URL
-      - key: VITE_PLATFORM_ENV
-        fromEnv: VITE_PLATFORM_ENV
-      - key: VITE_DEMO_ACCOUNTS
-        fromEnv: VITE_DEMO_ACCOUNTS
-    healthCheck:
-      path: /
-    domain:
-      - restaurant-system.com
-    autoDeploy: true
-
-  # Frontend (React/Vite) — Super Admin console (separate Static Site service)
-  - type: web
-    name: restaurant-admin
-    env: node
-    plan: free
-    rootDir: apps/web
-    buildCommand: "npm ci && npm run build:admin"
-    startCommand: "npx serve -s dist-admin -l $PORT"
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: VITE_PLATFORM_API_URL
-        fromEnv: VITE_PLATFORM_API_URL
-      - key: VITE_PLATFORM_ENV
-        fromEnv: VITE_PLATFORM_ENV
-    healthCheck:
-      path: /admin.html
-    domain:
-      - admin.restaurant-system.com
-    autoDeploy: true
-
-  # Backend (FastAPI)
-  - type: web
-    name: restaurant-backend
-    env: python
-    plan: free
-    rootDir: backend
-    buildCommand: "pip install --no-cache-dir -r requirements.txt"
-    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
-    envVars:
+      # Injected by Render from the Postgres instance (internal address).
       - key: DATABASE_URL
-        fromDatabase: restaurant-database
+        sync: false
+      - key: APP_ENV
+        value: production
       - key: SECRET_KEY
-        fromEnv: SECRET_KEY
+        sync: false
       - key: ALGORITHM
-        fromEnv: ALGORITHM
-      - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        fromEnv: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: HS256
+      - key: ACCESS_TOKEN_MINUTES
+        value: 480
+
+      # Browser origins allowed to call the API.
       - key: CORS_ORIGINS
-        fromEnv: CORS_ORIGINS
-      - key: ALLOWED_HOSTS
-        fromEnv: ALLOWED_HOSTS
-      - key: REDIS_URL
-        fromEnv: REDIS_URL
-      # ── Platform (Super Admin) realm ──────────────────────────
+        value: https://rest-1-t4ux.onrender.com,https://restaurant-sadmin.onrender.com
+
+      # Super-admin realm. PLATFORM_SECRET_KEY must differ from SECRET_KEY and
+      # be at least 32 characters; PLATFORM_COOKIE_DOMAIN must stay empty.
       - key: PLATFORM_SECRET_KEY
-        fromEnv: PLATFORM_SECRET_KEY
+        sync: false
       - key: PLATFORM_MFA_KEY
-        fromEnv: PLATFORM_MFA_KEY
+        sync: false
       - key: PLATFORM_ADMIN_ORIGIN
-        fromEnv: PLATFORM_ADMIN_ORIGIN
+        value: https://restaurant-sadmin.onrender.com
       - key: PLATFORM_API_ORIGIN
-        fromEnv: PLATFORM_API_ORIGIN
+        value: https://restaurent-rf9c.onrender.com
+      - key: PLATFORM_TENANT_ORIGIN
+        value: https://rest-1-t4ux.onrender.com
       - key: PLATFORM_COOKIE_SECURE
-        fromEnv: PLATFORM_COOKIE_SECURE
-      - key: PLATFORM_ACCESS_TOKEN_MINUTES
-        fromEnv: PLATFORM_ACCESS_TOKEN_MINUTES
-      - key: PLATFORM_REFRESH_TOKEN_MINUTES
-        fromEnv: PLATFORM_REFRESH_TOKEN_MINUTES
-      - key: PLATFORM_STEP_UP_MINUTES
-        fromEnv: PLATFORM_STEP_UP_MINUTES
-      - key: PLATFORM_REQUIRE_MFA
-        fromEnv: PLATFORM_REQUIRE_MFA
+        value: "true"
       - key: PLATFORM_COOKIE_DOMAIN
-        fromEnv: PLATFORM_COOKIE_DOMAIN
-      - key: PLATFORM_TIMEZONE
-        fromEnv: PLATFORM_TIMEZONE
-      - key: PLATFORM_LOGIN_MAX_ATTEMPTS
-        fromEnv: PLATFORM_LOGIN_MAX_ATTEMPTS
-      - key: PLATFORM_LOGIN_LOCKOUT_MINUTES
-        fromEnv: PLATFORM_LOGIN_LOCKOUT_MINUTES
-      - key: PLATFORM_MFA_TICKET_MINUTES
-        fromEnv: PLATFORM_MFA_TICKET_MINUTES
-      - key: PLATFORM_ENROLLMENT_TICKET_MINUTES
-        fromEnv: PLATFORM_ENROLLMENT_TICKET_MINUTES
-      - key: PLATFORM_RECOVERY_CODE_COUNT
-        fromEnv: PLATFORM_RECOVERY_CODE_COUNT
-      - key: PLATFORM_TOTP_ISSUER
-        fromEnv: PLATFORM_TOTP_ISSUER
+        value: ""
+      - key: PLATFORM_REQUIRE_MFA
+        value: "true"
       - key: PLATFORM_BOOTSTRAP_EMAIL
-        fromEnv: PLATFORM_BOOTSTRAP_EMAIL
+        sync: false
       - key: PLATFORM_BOOTSTRAP_PASSWORD
-        fromEnv: PLATFORM_BOOTSTRAP_PASSWORD
-      - key: PLATFORM_BOOTSTRAP_MFA_SECRET
-        fromEnv: PLATFORM_BOOTSTRAP_MFA_SECRET
-      # ── Bootstrap (used only when DB is empty) ────────────────
-      - key: RESTAURANT_NAME
-        fromEnv: RESTAURANT_NAME
-      - key: CURRENCY_CODE
-        fromEnv: CURRENCY_CODE
-      - key: TIMEZONE
-        fromEnv: TIMEZONE
-      - key: BOOTSTRAP_OWNER_EMAIL
-        fromEnv: BOOTSTRAP_OWNER_EMAIL
-      - key: BOOTSTRAP_OWNER_PASSWORD
-        fromEnv: BOOTSTRAP_OWNER_PASSWORD
-      # ── Email (SMTP) ──────────────────────────────────────────
-      - key: EMAIL_BACKEND
-        fromEnv: EMAIL_BACKEND
-      - key: SMTP_HOST
-        fromEnv: SMTP_HOST
-      - key: SMTP_PORT
-        fromEnv: SMTP_PORT
-      - key: SMTP_USER
-        fromEnv: SMTP_USER
-      - key: SMTP_PASSWORD
-        fromEnv: SMTP_PASSWORD
-      - key: SMTP_FROM
-        fromEnv: SMTP_FROM
-      - key: SMTP_STARTTLS
-        fromEnv: SMTP_STARTTLS
+        sync: false
+
+      # Invitation emails link to the app that hosts /auth/invitations/:token.
       - key: INVITATION_BASE_URL
-        fromEnv: INVITATION_BASE_URL
+        value: https://rest-1-t4ux.onrender.com
       - key: INVITATION_TTL_HOURS
-        fromEnv: INVITATION_TTL_HOURS
-      # ── QR & Customer domain ──────────────────────────────────
-      - key: CUSTOMER_DOMAIN_BASE
-        fromEnv: CUSTOMER_DOMAIN_BASE
+        value: "72"
+      - key: EMAIL_BACKEND
+        value: smtp
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_STARTTLS
+        value: "true"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+
+      # Customer QR surface: the shared host that may serve table codes.
+      - key: CUSTOMER_QR_DOMAIN
+        value: rest-1-t4ux.onrender.com
       - key: QR_HOSTNAME_ENFORCEMENT
-        fromEnv: QR_HOSTNAME_ENFORCEMENT
-      - key: MAX_QR_IMAGE_BYTES
-        fromEnv: MAX_QR_IMAGE_BYTES
-      # ── Tax ───────────────────────────────────────────────────
-      - key: TAX_RATE_BPS
-        fromEnv: TAX_RATE_BPS
-      # ── Uploads ───────────────────────────────────────────────
-      - key: UPLOADS_DIR
-        fromEnv: UPLOADS_DIR
-      # ── Waiter claim ──────────────────────────────────────────
-      - key: CLAIM_TIMEOUT_MINUTES
-        fromEnv: CLAIM_TIMEOUT_MINUTES
-      - key: CLAIMS_PER_HOUR_LIMIT
-        fromEnv: CLAIMS_PER_HOUR_LIMIT
-      - key: ESCALATIONS_PER_HOUR_LIMIT
-        fromEnv: ESCALATIONS_PER_HOUR_LIMIT
-      - key: WAITER_CLAIM_TIMEOUT_MINUTES
-        fromEnv: WAITER_CLAIM_TIMEOUT_MINUTES
-      - key: WAITER_CLAIMS_PER_HOUR_LIMIT
-        fromEnv: WAITER_CLAIMS_PER_HOUR_LIMIT
-      # ── Cloudinary (image uploads) ────────────────────────────
+        value: "true"
+
+      # Image uploads.
       - key: CLOUDINARY_CLOUD_NAME
-        fromEnv: CLOUDINARY_CLOUD_NAME
+        sync: false
       - key: CLOUDINARY_API_KEY
-        fromEnv: CLOUDINARY_API_KEY
+        sync: false
       - key: CLOUDINARY_API_SECRET
-        fromEnv: CLOUDINARY_API_SECRET
-      # ── Firebase / FCM ────────────────────────────────────────
-      - key: FIREBASE_CREDENTIALS_PATH
-        fromEnv: FIREBASE_CREDENTIALS_PATH
-      - key: FIREBASE_PROJECT_ID
-        fromEnv: FIREBASE_PROJECT_ID
+        sync: false
+
+      # Push notifications (disabled unless a worker is deployed).
       - key: FCM_WORKER_ENABLED
-        fromEnv: FCM_WORKER_ENABLED
-    healthCheck:
-      path: /health
-    domain:
-      - api.restaurant-system.com
-    autoDeploy: true
+        value: "false"
 
-  # Redis (for session storage and caching)
-  - type: worker
-    name: restaurant-redis
-    env: redis
-    plan: free
-    autoDeploy: true
-    volume:
-      - source: redis_data
-        target: /data
-
-  # PostgreSQL Database (already exists: restaurent, dpg-dbqqppbrjlhs73a695vg-a)
+  # ── Customer QR menu + staff/owner console (Vite build: dist) ────────────
   - type: web
-    name: restaurant-database
-    env: postgresql
-    plan: free
-    autoDeploy: true
-    # NOTE: Database already created via Render Dashboard.
-    # Do NOT recreate — use existing instance id dpg-dbqqppbrjlhs73a695vg-a
-    # Connection URL is auto-injected into backend via fromDatabase above.
-    volume:
-      - source: postgres_data
-        target: /var/lib/postgresql/data
+    name: rest-1
+    runtime: static
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: cd apps/web && npm ci && npm run build
+    staticPublishPath: apps/web/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://restaurent-rf9c.onrender.com
+      - key: VITE_PLATFORM_API_URL
+        value: https://restaurent-rf9c.onrender.com
+      - key: VITE_PLATFORM_ENV
+        value: production
+      - key: VITE_DEMO_ACCOUNTS
+        value: "0"
+      - key: VITE_CUSTOMER_QR_DOMAIN
+        value: rest-1-t4ux.onrender.com
+    routes:
+      # React Router: every unknown path renders the SPA shell.
+      - type: rewrite
+        source: /*
+        destination: /index.html
 
-# Mounts for persistent data
-mounts:
-  - name: redis_data
-    source: redis_volume
-    mountPath: /data
-  - name: postgres_data
-    source: postgres_volume
-    mountPath: /var/lib/postgresql/data
+  # ── Super Admin console (Vite build: dist-admin, entry admin.html) ───────
+  - type: web
+    name: restaurant-sadmin
+    runtime: static
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: npm ci && npm run build:admin
+    rootDir: apps/web
+    staticPublishPath: dist-admin
+    envVars:
+      - key: VITE_PLATFORM_API_URL
+        value: https://restaurent-rf9c.onrender.com
+      - key: VITE_PLATFORM_ENV
+        value: production
+      - key: VITE_DEMO_ACCOUNTS
+        value: "0"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /admin.html
