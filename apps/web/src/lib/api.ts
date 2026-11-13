@@ -26,5 +26,12 @@ const client = createApiClient({
 
 export const apiFetch = client.request;
 
+/** Resolve an API path against the configured backend base URL. */
+export function apiUrl(path: string): string {
+  const base = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 /* Re-export types from the shared api-client package */
 export * from "@rest/api-client";

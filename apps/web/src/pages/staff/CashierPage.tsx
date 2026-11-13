@@ -66,7 +66,10 @@ export default function CashierPage() {
     setQrUrl(null);
     async function load() {
       try {
-        const response = await fetch(chosenMethod!.qr_image_url!, {
+        const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+        const rawUrl = chosenMethod!.qr_image_url!;
+        const url = /^https?:\/\//i.test(rawUrl) ? rawUrl : `${apiBase}${rawUrl.startsWith("/") ? rawUrl : `/${rawUrl}`}`;
+        const response = await fetch(url, {
           headers: { Authorization: `Bearer ${getToken() ?? ""}` },
         });
         if (!response.ok) throw new Error("QR image request failed");

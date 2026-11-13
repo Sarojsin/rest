@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getToken } from "../lib/api";
+import { apiUrl, getToken } from "../lib/api";
 
 /**
  * Renders an authenticated image endpoint (payment QR codes) as an object URL.
@@ -29,7 +29,7 @@ export function AuthedImage({
 
     async function load() {
       try {
-        const response = await fetch(src, {
+        const response = await fetch(apiUrl(src), {
           headers: { Authorization: `Bearer ${getToken() ?? ""}` },
           cache: "no-store",
         });
