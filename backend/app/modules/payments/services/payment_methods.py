@@ -335,10 +335,9 @@ def open_qr_image(db: Session, restaurant_id: UUID, method_id: UUID):
         return ("redirect", method.qr_image_secure_url)
     if method.qr_image_name and method.qr_image_ext:
         media_type = _MEDIA_TYPES.get(method.qr_image_ext, "application/octet-stream")
-        return (
-            "file",
-            _qr_directory() / f"{method.qr_image_name}.{method.qr_image_ext}",
-            media_type,
-        )
+        path = _qr_directory() / f"{method.qr_image_name}.{method.qr_image_ext}"
+        if not path.exists():
+            raise AppError(404, "QR_IMAGE_NOT_FOUND", "Not found", "The QR image file is unavailable. Please upload it again.")
+        return ("file", path, media_type)
     raise AppError(404, "QR_IMAGE_NOT_FOUND", "Not found", "No QR image is set.")
 

@@ -85,7 +85,13 @@ export default function IngredientsPage() {
       setNotice(await action());
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "The ingredient action failed.");
+      if (err instanceof ApiError) {
+        setError(err.detail);
+      } else if (err instanceof Error && err.message) {
+        setError(err.message);
+      } else {
+        setError("The ingredient action failed.");
+      }
     } finally {
       setBusy(false);
     }
