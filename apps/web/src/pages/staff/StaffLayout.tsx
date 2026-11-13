@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { playNotificationSound, unlockNotificationSound } from "../../lib/notificationSound";
+import { setupForegroundListener } from "../../lib/fcm";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { apiFetch, type Order, type ServiceCall } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
@@ -18,10 +20,21 @@ function NotificationBell() {
   const [details, setDetails] = useState<ServiceCall[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const prevTotal = useRef<number | null>(null);
+
+  useEffect(() => {
+    const unlock = () => unlockNotificationSound();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
+    async function load(initial = false) {
       const jobs: Promise<void>[] = [];
       jobs.push(
         apiFetch<ServiceCall[]>("/api/v1/service-calls?status=REQUESTED")
@@ -44,8 +57,8 @@ function NotificationBell() {
       }
       await Promise.all(jobs);
     }
-    void load();
-    const timer = window.setInterval(() => void load(), 5000);
+    void load(true);
+    const timer = window.setInterval(() => void load(false), 5000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -53,6 +66,33 @@ function NotificationBell() {
   }, [has]);
 
   const total = callCount + orderCount;
+
+  useEffect(() => {
+    if (prevTotal.current === null) {
+      prevTotal.current = total;
+      return;
+    }
+    if (total > prevTotal.current) {
+      playNotificationSound();
+    }
+    prevTotal.current = total;
+  }, [total]);
+
+  useEffect(() => {
+    const unsubscribe = setupForegroundListener((payload) => {
+      const title = (payload.title || "").toLowerCase();
+      const type = (payload.data?.type || "").toLowerCase();
+      if (type.includes("order") || type.includes("service") || type.includes("kitchen") || type.includes("call") || title.includes("order") || title.includes("kitchen") || title.includes("waiter") || title.includes("ready")) {
+        playNotificationSound();
+      } else {
+        // Play for other staff notifications too (best-effort)
+        playNotificationSound();
+      }
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;

@@ -182,6 +182,8 @@
 
   --focus: #18181B;
   --shadow-color: rgba(36, 36, 36, 0.1);
+  --text: var(--ink);
+  --card: var(--surface);
 
   --font-body: var(--font-ui);
   --font-heading: var(--font-display);
@@ -290,6 +292,8 @@
 
   --focus: #18181B;
   --shadow-color: rgba(36, 36, 36, 0.1);
+  --text: var(--ink);
+  --card: var(--surface);
 
   --font-body: var(--font-ui);
   --font-heading: var(--font-display);
