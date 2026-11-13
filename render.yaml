@@ -30,6 +30,27 @@ services:
       - restaurant-system.com
     autoDeploy: true
 
+  # Frontend (React/Vite) — Super Admin console (separate Static Site service)
+  - type: web
+    name: restaurant-admin
+    env: node
+    plan: free
+    rootDir: apps/web
+    buildCommand: "npm ci && npm run build:admin"
+    startCommand: "npx serve -s dist-admin -l $PORT"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_PLATFORM_API_URL
+        fromEnv: VITE_PLATFORM_API_URL
+      - key: VITE_PLATFORM_ENV
+        fromEnv: VITE_PLATFORM_ENV
+    healthCheck:
+      path: /admin.html
+    domain:
+      - admin.restaurant-system.com
+    autoDeploy: true
+
   # Backend (FastAPI)
   - type: web
     name: restaurant-backend
