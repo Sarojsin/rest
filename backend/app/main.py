@@ -63,15 +63,26 @@ def create_app() -> FastAPI:
     async def request_validation_handler(request: Request, exc: RequestValidationError):
         from fastapi.responses import JSONResponse
 
+        body = problem_body(
+            request,
+            422,
+            "VALIDATION_ERROR",
+            "Validation error",
+            "The request failed validation.",
+        )
+        # Include field-level details to aid debugging (no secrets in validation errors).
+        try:
+            errors = []
+            for e in exc.errors():
+                loc = [str(x) for x in e.get("loc", [])]
+                errors.append({"loc": loc, "msg": str(e.get("msg", "")), "type": str(e.get("type", ""))})
+            if errors:
+                body["errors"] = errors
+        except Exception:
+            pass
         return JSONResponse(
             status_code=422,
-            content=problem_body(
-                request,
-                422,
-                "VALIDATION_ERROR",
-                "Validation error",
-                "The request failed validation.",
-            ),
+            content=body,
             media_type="application/problem+json",
         )
 
@@ -79,15 +90,25 @@ def create_app() -> FastAPI:
     async def pydantic_validation_handler(request: Request, exc: ValidationError):
         from fastapi.responses import JSONResponse
 
+        body = problem_body(
+            request,
+            422,
+            "VALIDATION_ERROR",
+            "Validation error",
+            "The request failed validation.",
+        )
+        try:
+            errors = []
+            for e in exc.errors():
+                loc = [str(x) for x in e.get("loc", [])]
+                errors.append({"loc": loc, "msg": str(e.get("msg", "")), "type": str(e.get("type", ""))})
+            if errors:
+                body["errors"] = errors
+        except Exception:
+            pass
         return JSONResponse(
             status_code=422,
-            content=problem_body(
-                request,
-                422,
-                "VALIDATION_ERROR",
-                "Validation error",
-                "The request failed validation.",
-            ),
+            content=body,
             media_type="application/problem+json",
         )
 
