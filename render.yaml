@@ -1,19 +1,28 @@
 # Render deployment configuration for restaurant management system
 # Deploy on https://dashboard.render.com
+# MCP server connected: render (https://mcp.render.com/mcp)
+# Database: restaurent (dpg-dbqqppbrjlhs73a695vg-a, Free, Oregon)
+#    Expires: 2026-12-12 — set a calendar reminder to renew before expiration
 
 services:
-  # Frontend (React/Vite)
+  # Frontend (React/Vite) — Customer QR menu + staff admin
   - type: web
     name: restaurant-frontend
     env: node
     plan: free
     buildCommand: "cd apps/web && npm ci && npm run build"
-    startCommand: "cd apps/web && npm start"
+    startCommand: "cd apps/web && npx serve -s dist -l $PORT"
     envVars:
       - key: NODE_ENV
         value: production
       - key: REACT_APP_API_URL
         value: https://api.restaurant-system.com
+      - key: VITE_PLATFORM_API_URL
+        fromEnv: VITE_PLATFORM_API_URL
+      - key: VITE_PLATFORM_ENV
+        fromEnv: VITE_PLATFORM_ENV
+      - key: VITE_DEMO_ACCOUNTS
+        fromEnv: VITE_DEMO_ACCOUNTS
     healthCheck:
       path: /
     domain:
@@ -26,23 +35,136 @@ services:
     env: python
     plan: free
     buildCommand: "cd backend && pip install --no-cache-dir -r requirements.txt"
-    startCommand: "cd backend && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    startCommand: "cd backend && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: DATABASE_URL
-        value: postgresql://postgres:tara@postgres:5432/restaurant
-      - key: REDIS_URL
-        value: redis://redis:6379
+        fromDatabase: restaurant-database
       - key: SECRET_KEY
-        value: ${SECRET_KEY}
+        fromEnv: SECRET_KEY
+      - key: ALGORITHM
+        fromEnv: ALGORITHM
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        fromEnv: ACCESS_TOKEN_EXPIRE_MINUTES
+      - key: CORS_ORIGINS
+        fromEnv: CORS_ORIGINS
       - key: ALLOWED_HOSTS
-        value: restaurant-system.com,localhost
+        fromEnv: ALLOWED_HOSTS
+      - key: REDIS_URL
+        fromEnv: REDIS_URL
+      # ── Platform (Super Admin) realm ──────────────────────────
+      - key: PLATFORM_SECRET_KEY
+        fromEnv: PLATFORM_SECRET_KEY
+      - key: PLATFORM_MFA_KEY
+        fromEnv: PLATFORM_MFA_KEY
+      - key: PLATFORM_ADMIN_ORIGIN
+        fromEnv: PLATFORM_ADMIN_ORIGIN
+      - key: PLATFORM_API_ORIGIN
+        fromEnv: PLATFORM_API_ORIGIN
+      - key: PLATFORM_COOKIE_SECURE
+        fromEnv: PLATFORM_COOKIE_SECURE
+      - key: PLATFORM_ACCESS_TOKEN_MINUTES
+        fromEnv: PLATFORM_ACCESS_TOKEN_MINUTES
+      - key: PLATFORM_REFRESH_TOKEN_MINUTES
+        fromEnv: PLATFORM_REFRESH_TOKEN_MINUTES
+      - key: PLATFORM_STEP_UP_MINUTES
+        fromEnv: PLATFORM_STEP_UP_MINUTES
+      - key: PLATFORM_REQUIRE_MFA
+        fromEnv: PLATFORM_REQUIRE_MFA
+      - key: PLATFORM_COOKIE_DOMAIN
+        fromEnv: PLATFORM_COOKIE_DOMAIN
+      - key: PLATFORM_TIMEZONE
+        fromEnv: PLATFORM_TIMEZONE
+      - key: PLATFORM_LOGIN_MAX_ATTEMPTS
+        fromEnv: PLATFORM_LOGIN_MAX_ATTEMPTS
+      - key: PLATFORM_LOGIN_LOCKOUT_MINUTES
+        fromEnv: PLATFORM_LOGIN_LOCKOUT_MINUTES
+      - key: PLATFORM_MFA_TICKET_MINUTES
+        fromEnv: PLATFORM_MFA_TICKET_MINUTES
+      - key: PLATFORM_ENROLLMENT_TICKET_MINUTES
+        fromEnv: PLATFORM_ENROLLMENT_TICKET_MINUTES
+      - key: PLATFORM_RECOVERY_CODE_COUNT
+        fromEnv: PLATFORM_RECOVERY_CODE_COUNT
+      - key: PLATFORM_TOTP_ISSUER
+        fromEnv: PLATFORM_TOTP_ISSUER
+      - key: PLATFORM_BOOTSTRAP_EMAIL
+        fromEnv: PLATFORM_BOOTSTRAP_EMAIL
+      - key: PLATFORM_BOOTSTRAP_PASSWORD
+        fromEnv: PLATFORM_BOOTSTRAP_PASSWORD
+      - key: PLATFORM_BOOTSTRAP_MFA_SECRET
+        fromEnv: PLATFORM_BOOTSTRAP_MFA_SECRET
+      # ── Bootstrap (used only when DB is empty) ────────────────
+      - key: RESTAURANT_NAME
+        fromEnv: RESTAURANT_NAME
+      - key: CURRENCY_CODE
+        fromEnv: CURRENCY_CODE
+      - key: TIMEZONE
+        fromEnv: TIMEZONE
+      - key: BOOTSTRAP_OWNER_EMAIL
+        fromEnv: BOOTSTRAP_OWNER_EMAIL
+      - key: BOOTSTRAP_OWNER_PASSWORD
+        fromEnv: BOOTSTRAP_OWNER_PASSWORD
+      # ── Email (SMTP) ──────────────────────────────────────────
+      - key: EMAIL_BACKEND
+        fromEnv: EMAIL_BACKEND
+      - key: SMTP_HOST
+        fromEnv: SMTP_HOST
+      - key: SMTP_PORT
+        fromEnv: SMTP_PORT
+      - key: SMTP_USER
+        fromEnv: SMTP_USER
+      - key: SMTP_PASSWORD
+        fromEnv: SMTP_PASSWORD
+      - key: SMTP_FROM
+        fromEnv: SMTP_FROM
+      - key: SMTP_STARTTLS
+        fromEnv: SMTP_STARTTLS
+      - key: INVITATION_BASE_URL
+        fromEnv: INVITATION_BASE_URL
+      - key: INVITATION_TTL_HOURS
+        fromEnv: INVITATION_TTL_HOURS
+      # ── QR & Customer domain ──────────────────────────────────
+      - key: CUSTOMER_DOMAIN_BASE
+        fromEnv: CUSTOMER_DOMAIN_BASE
+      - key: QR_HOSTNAME_ENFORCEMENT
+        fromEnv: QR_HOSTNAME_ENFORCEMENT
+      - key: MAX_QR_IMAGE_BYTES
+        fromEnv: MAX_QR_IMAGE_BYTES
+      # ── Tax ───────────────────────────────────────────────────
+      - key: TAX_RATE_BPS
+        fromEnv: TAX_RATE_BPS
+      # ── Uploads ───────────────────────────────────────────────
+      - key: UPLOADS_DIR
+        fromEnv: UPLOADS_DIR
+      # ── Waiter claim ──────────────────────────────────────────
+      - key: CLAIM_TIMEOUT_MINUTES
+        fromEnv: CLAIM_TIMEOUT_MINUTES
+      - key: CLAIMS_PER_HOUR_LIMIT
+        fromEnv: CLAIMS_PER_HOUR_LIMIT
+      - key: ESCALATIONS_PER_HOUR_LIMIT
+        fromEnv: ESCALATIONS_PER_HOUR_LIMIT
+      - key: WAITER_CLAIM_TIMEOUT_MINUTES
+        fromEnv: WAITER_CLAIM_TIMEOUT_MINUTES
+      - key: WAITER_CLAIMS_PER_HOUR_LIMIT
+        fromEnv: WAITER_CLAIMS_PER_HOUR_LIMIT
+      # ── Cloudinary (image uploads) ────────────────────────────
+      - key: CLOUDINARY_CLOUD_NAME
+        fromEnv: CLOUDINARY_CLOUD_NAME
+      - key: CLOUDINARY_API_KEY
+        fromEnv: CLOUDINARY_API_KEY
+      - key: CLOUDINARY_API_SECRET
+        fromEnv: CLOUDINARY_API_SECRET
+      # ── Firebase / FCM ────────────────────────────────────────
+      - key: FIREBASE_CREDENTIALS_PATH
+        fromEnv: FIREBASE_CREDENTIALS_PATH
+      - key: FIREBASE_PROJECT_ID
+        fromEnv: FIREBASE_PROJECT_ID
+      - key: FCM_WORKER_ENABLED
+        fromEnv: FCM_WORKER_ENABLED
     healthCheck:
       path: /health
     domain:
       - api.restaurant-system.com
     autoDeploy: true
-    conditions:
-      - deployment->backend
 
   # Redis (for session storage and caching)
   - type: worker
@@ -54,12 +176,15 @@ services:
       - source: redis_data
         target: /data
 
-  # PostgreSQL Database
+  # PostgreSQL Database (already exists: restaurent, dpg-dbqqppbrjlhs73a695vg-a)
   - type: web
     name: restaurant-database
     env: postgresql
     plan: free
     autoDeploy: true
+    # NOTE: Database already created via Render Dashboard.
+    # Do NOT recreate — use existing instance id dpg-dbqqppbrjlhs73a695vg-a
+    # Connection URL is auto-injected into backend via fromDatabase above.
     volume:
       - source: postgres_data
         target: /var/lib/postgresql/data
@@ -69,9 +194,6 @@ mounts:
   - name: redis_data
     source: redis_volume
     mountPath: /data
-
   - name: postgres_data
     source: postgres_volume
     mountPath: /var/lib/postgresql/data
--e '      - key: PLATFORM_BOOTSTRAP_EMAIL\n        value: platform@harbor.example'  
--e '      - key: PLATFORM_BOOTSTRAP_PASSWORD\n        value: PlatformOwner!1' 

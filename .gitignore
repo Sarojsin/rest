@@ -136,13 +136,26 @@ junit*.xml
 tt.txt
 
 # Important: Never commit credentials or secrets
-*.json
+# NOTE: *.json is intentionally NOT ignored here — package.json, opencode.json,
+# tsconfig.json, etc. must be tracked. Only secret-bearing JSON should use
+# more specific patterns below.
 *.key
 *.pem
 *.crt
 *.p12
 *.der
 *.cer
+
+# Environment files — NEVER commit actual env files (template is OK to commit)
+.env
+.env.*
+!.env.production.template
+!.env.example
+
+# OpenCode / MCP config — keep opencode.json tracked (contains no secrets), exclude any token files
+.opencode/*
+!opencode.json
+.mcp-auth/
 
 # Configuration files that may contain credentials
 docker-compose*.yml
