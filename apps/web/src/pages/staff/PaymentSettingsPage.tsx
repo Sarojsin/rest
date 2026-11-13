@@ -388,7 +388,7 @@ export default function PaymentSettingsPage() {
 
                 {draft.kind === "QR" ? (
                   <label className="field">
-                    QR image (PNG, JPEG or WebP · up to 2 MB)
+                    QR image (PNG, JPEG or WebP - up to 512 KB)
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
