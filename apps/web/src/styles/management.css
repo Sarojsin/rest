@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Management surfaces — dashboard shell, menu admin, tables, payments, reports
+   Management surfaces â€” dashboard shell, menu admin, tables, payments, reports
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -1050,7 +1050,7 @@
   font-weight: 700;
 }
 
-/* Waiter order lines: name/description, price, stepper — no thumbnail column. */
+/* Waiter order lines: name/description, price, stepper â€” no thumbnail column. */
 .order-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -1243,7 +1243,9 @@
   }
 }
 
-/* ── Report pages (reports frontend split) ─────────────────────── */
+/* â”€â”€ Report pages (reports frontend split) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+/* -- Report pages (reports frontend split) -- */
 .grid.three {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1253,13 +1255,13 @@
 .stat {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--nav-ink);
+  color: var(--ink);
 }
 
 .stat + .kpi-foot,
 .report-card .kpi-foot {
   margin-top: var(--space-1);
-  color: var(--nav-muted);
+  color: var(--muted);
   font-size: var(--text-xs);
 }
 
@@ -1272,10 +1274,10 @@
 .segmented button {
   flex: 1;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid rgba(255, 255, 0, 0.12);
+  border: 1px solid var(--line);
   border-right: 0;
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--nav-muted);
+  background: var(--surface-2);
+  color: var(--muted);
   font-size: var(--text-sm);
   font-weight: 500;
   cursor: pointer;
@@ -1288,15 +1290,16 @@
 }
 
 .segmented button:last-child {
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 1px solid var(--line);
   border-top-right-radius: var(--radius-md);
   border-bottom-right-radius: var(--radius-md);
 }
 
 .segmented button[aria-pressed="true"] {
-  background: var(--nav-active-bg);
-  color: var(--nav-active-ink);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line-strong);
+  font-weight: 600;
 }
 
 .data-table {
@@ -1308,15 +1311,15 @@
 .data-table th {
   text-align: left;
   padding: var(--space-2) var(--space-3);
-  color: var(--nav-muted);
+  color: var(--muted);
   font-weight: 600;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--line);
 }
 
 .data-table td {
   padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  color: var(--nav-ink);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
 }
 
 .data-table td.num,
@@ -1342,15 +1345,15 @@
 }
 
 .badge.pending {
-  background: rgba(59, 130, 246, 0.12);
-  color: var(--nav-ink);
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: var(--warn-soft);
+  color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
 }
 
 .badge.rejected {
-  background: rgba(239, 68, 68, 0.12);
-  color: var(--nav-ink);
-  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 .toolbar {
