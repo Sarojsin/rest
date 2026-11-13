@@ -16,11 +16,11 @@ export default function AdminPlansPage() {
       setError(null);
       try {
         // Super admins can see all plans; tenant admins see only their plans
-        const res: Response = await platformFetch(`/api/platform/plans`);
-        const data = await res.json();
-        setPlans(data.items || []);
+        const data = await platformFetch<any>(`/api/platform/plans`);
+        const items = Array.isArray(data) ? data : data?.items || [];
+        setPlans(items);
       } catch (err: any) {
-        setError(err.detail || "Failed to load plans.");
+        setError(err?.detail || err?.message || "Failed to load plans.");
       } finally {
         setLoading(false);
       }
@@ -33,7 +33,7 @@ export default function AdminPlansPage() {
       // Try loading even without full auth
       loadPlans();
     }
-  }, [admin]);
+  }, [admin, authLoading]);
 
   if (loading) {
     return (
