@@ -27,6 +27,7 @@ from app.modules.platform.models import (
 from app.modules.platform.permissions import SUPERADMIN
 from app.modules.platform.schemas_admin import (
     CancelSubscriptionRequest,
+    ExpireTrialRequest,
     ExtendTrialRequest,
     ReasonRequest,
     SubscriptionChangeRequest,
