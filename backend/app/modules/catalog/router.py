@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import Actor, require_permission, require_permission_and_feature
 from app.db.session import get_db
+from app.modules.catalog.models import MenuCategory
 from app.modules.catalog.schemas import MenuItemPatch, MenuItemWrite, MenuCategoryWrite, MenuCategoryPatch
 from app.modules.catalog.services import menu as menu_service
 

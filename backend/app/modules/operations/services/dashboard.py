@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, literal_column, select
 from sqlalchemy.orm import Session
 
 from app.modules.operations.models import Order, OrderItem
@@ -43,9 +43,13 @@ def daily_sales(
     end_date: datetime,
 ) -> list[dict]:
     """Return daily revenue broken down by day between start_date and end_date."""
+    # ``date_trunc('day', ...)`` must render identically in SELECT, GROUP BY and
+    # ORDER BY: PostgreSQL matches grouped expressions syntactically, and a bind
+    # parameter would get a different placeholder in each clause.
+    day = func.date_trunc(literal_column("'day'"), Order.submitted_at)
     stmt = (
         select(
-            func.date_trunc("day", Order.submitted_at).label("day"),
+            day.label("day"),
             func.coalesce(func.sum(OrderItem.line_total_minor), 0).label("revenue"),
         )
         .select_from(Order)
@@ -54,8 +58,8 @@ def daily_sales(
             Order.submitted_at >= start_date,
             Order.submitted_at < end_date,
         )
-        .group_by(func.date_trunc("day", Order.submitted_at))
-        .order_by(func.date_trunc("day", Order.submitted_at))
+        .group_by(day)
+        .order_by(day)
     )
     rows = db.execute(stmt).all()
     return [
@@ -116,6 +120,6 @@ def revenue_last_n_days(
     return {
         "period_days": n,
         "total_revenue_minor": total_rev,
-        "total_orders": total_orders,
+        "total_orders": total_orders(db),
         "daily_breakdown": daily,
     }

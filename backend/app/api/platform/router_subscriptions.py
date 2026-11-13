@@ -33,6 +33,8 @@ from app.modules.platform.schemas_admin import (
     SubscriptionChangeRequest,
     SubscriptionCreateRequest,
     SubscriptionUpdateRequest,
+    TrialExpirationOut,
+    TrialExpiringOut,
 )
 from app.modules.tenancy.services import platform_directory
 from app.modules.platform.services.audit import write_platform_audit

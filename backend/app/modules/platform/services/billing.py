@@ -22,6 +22,7 @@ from app.modules.platform.models import (
     PlatformPayment,
     PlatformPaymentEvent,
     PlatformPlan,
+    PlatformPlanVersion,
     PlatformSubscription,
     PlatformSubscriptionEvent,
 )
@@ -520,11 +521,15 @@ def auto_renew_subscription(
     db.flush()
 
     # Add invoice line for the plan
+    plan_row = db.get(PlatformPlan, subscription.plan_id)
     db.add(
         PlatformInvoiceLine(
             invoice_id=invoice.id,
             kind="PLAN",
-            description=f"{plan.name if plan else 'Plan'} subscription ({subscription.billing_interval_snapshot})",
+            description=(
+                f"{plan_row.name if plan_row else 'Plan'} subscription "
+                f"({subscription.billing_interval_snapshot})"
+            ),
             quantity=1,
             unit_amount_minor=subtotal_minor,
             amount_minor=subtotal_minor,
@@ -672,6 +677,7 @@ def process_payment_webhook(
     db.flush()
 
     # Handle based on event type
+    now = datetime.now(UTC)
     if event_type in ("payment_success", "charge_success"):
         # Mark invoice as paid
         if payment.invoice_id:
