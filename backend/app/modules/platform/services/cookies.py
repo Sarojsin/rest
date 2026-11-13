@@ -30,6 +30,10 @@ def _max_age(expires_at: datetime) -> int:
 
 def set_auth_cookies(response: Response, session: IssuedSession) -> None:
     secure = settings.platform_cookie_secure
+    # Admin SPA and API run on different origins in production, so cookies must
+    # be SameSite=None to be sent on cross-origin requests. SameSite=None
+    # requires Secure=True (browsers reject otherwise).
+    samesite = "none" if secure else "lax"
     response.set_cookie(
         PLATFORM_ACCESS_COOKIE,
         session.access_token,
@@ -37,7 +41,7 @@ def set_auth_cookies(response: Response, session: IssuedSession) -> None:
         path=PLATFORM_ACCESS_PATH,
         httponly=True,
         secure=secure,
-        samesite="strict",
+        samesite=samesite,
     )
     response.set_cookie(
         PLATFORM_REFRESH_COOKIE,
@@ -46,7 +50,7 @@ def set_auth_cookies(response: Response, session: IssuedSession) -> None:
         path=PLATFORM_REFRESH_PATH,
         httponly=True,
         secure=secure,
-        samesite="strict",
+        samesite=samesite,
     )
     response.set_cookie(
         PLATFORM_CSRF_COOKIE,
@@ -55,42 +59,45 @@ def set_auth_cookies(response: Response, session: IssuedSession) -> None:
         path=_CSRF_PATH,
         httponly=False,
         secure=secure,
-        samesite="strict",
+        samesite=samesite,
     )
 
 
 def set_access_cookie(response: Response, token: str, expires_in: int) -> None:
+    secure = settings.platform_cookie_secure
+    samesite = "none" if secure else "lax"
     response.set_cookie(
         PLATFORM_ACCESS_COOKIE,
         token,
         max_age=expires_in,
         path=PLATFORM_ACCESS_PATH,
         httponly=True,
-        secure=settings.platform_cookie_secure,
-        samesite="strict",
+        secure=secure,
+        samesite=samesite,
     )
 
 
 def clear_auth_cookies(response: Response) -> None:
     secure = settings.platform_cookie_secure
+    samesite = "none" if secure else "lax"
     response.delete_cookie(
         PLATFORM_ACCESS_COOKIE,
         path=PLATFORM_ACCESS_PATH,
         secure=secure,
         httponly=True,
-        samesite="strict",
+        samesite=samesite,
     )
     response.delete_cookie(
         PLATFORM_REFRESH_COOKIE,
         path=PLATFORM_REFRESH_PATH,
         secure=secure,
         httponly=True,
-        samesite="strict",
+        samesite=samesite,
     )
     response.delete_cookie(
         PLATFORM_CSRF_COOKIE,
         path=_CSRF_PATH,
         secure=secure,
         httponly=False,
-        samesite="strict",
+        samesite=samesite,
     )
