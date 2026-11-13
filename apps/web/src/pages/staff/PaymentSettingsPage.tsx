@@ -125,7 +125,7 @@ export default function PaymentSettingsPage() {
     setError(null);
     try {
       const form = new FormData();
-      form.append("image", file);
+      form.append("file", file);
       await apiFetch<PaymentMethodConfig>(`/api/v1/payment-methods/${method.id}/qr-image`, {
         method: "POST",
         body: form,
