@@ -48,6 +48,19 @@ function absoluteUrl(path: string): string {
   return `${API_BASE}${suffix}`;
 }
 
+// Cross-origin SPAs cannot read cookies set for the API host via document.cookie.
+// We keep the latest CSRF token in memory (from auth responses) and fall back to
+// the cookie for same-origin setups.
+let platformCsrfToken: string | null = null;
+
+export function setPlatformCsrfToken(token: string | null | undefined): void {
+  if (token) platformCsrfToken = token;
+}
+
+export function clearPlatformCsrfToken(): void {
+  platformCsrfToken = null;
+}
+
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const prefix = `${name}=`;
@@ -58,6 +71,10 @@ function readCookie(name: string): string | null {
     }
   }
   return null;
+}
+
+function getPlatformCsrfToken(): string | null {
+  return platformCsrfToken || readCookie("platform_csrf");
 }
 
 async function readProblem(response: Response): Promise<PlatformProblem> {
@@ -95,7 +112,7 @@ async function send(path: string, options: PlatformRequestOptions): Promise<Resp
     headers["Content-Type"] = "application/json";
   }
   if (!isSafeMethod(method)) {
-    const csrf = readCookie("platform_csrf");
+    const csrf = getPlatformCsrfToken();
     if (csrf) headers["X-CSRF-Token"] = csrf;
   }
   return fetch(absoluteUrl(path), {
@@ -118,6 +135,17 @@ export function refreshPlatformSession(): Promise<boolean> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
+      if (response.ok) {
+        const contentType = response.headers.get("content-type") ?? "";
+        if (contentType.includes("application/json")) {
+          try {
+            const parsed = (await response.clone().json()) as { csrf_token?: string | null };
+            if (parsed?.csrf_token) setPlatformCsrfToken(parsed.csrf_token);
+          } catch {
+            // ignore parse errors; cookie-based flow may still work
+          }
+        }
+      }
       return response.ok;
     } catch {
       return false;
@@ -171,7 +199,12 @@ export async function platformFetch<T>(
   if (!contentType.includes("application/json")) {
     return (await response.text()) as unknown as T;
   }
-  return (await response.json()) as T;
+  const data = (await response.json()) as T;
+  if (data && typeof data === "object" && "csrf_token" in (data as Record<string, unknown>)) {
+    const token = (data as { csrf_token?: string | null }).csrf_token;
+    if (typeof token === "string" && token) setPlatformCsrfToken(token);
+  }
+  return data;
 }
 
 /* -------------------------------------------------------------------------
@@ -199,6 +232,7 @@ export type AuthSuccess = {
   admin: PlatformAdmin;
   expires_in: number;
   recovery_codes?: string[] | null;
+  csrf_token?: string | null;
 };
 
 export type MfaEnrollment = {

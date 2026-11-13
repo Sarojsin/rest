@@ -43,6 +43,7 @@ class StepUpRequest(BaseModel):
 class StepUpOut(BaseModel):
     expires_in: int
     step_up_expires_in: int
+    csrf_token: str | None = None
 
 
 class PlatformAdminOut(BaseModel):
@@ -62,6 +63,9 @@ class AuthSuccessOut(BaseModel):
     expires_in: int
     # Returned exactly once at enrollment. Never stored in plaintext.
     recovery_codes: list[str] | None = None
+    # Exposed so cross-origin admin SPAs can send the CSRF header even when the
+    # HttpOnly-domain cookie is not readable via document.cookie.
+    csrf_token: str | None = None
 
 
 class PlatformSessionOut(BaseModel):

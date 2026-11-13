@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   PlatformApiError,
+  clearPlatformCsrfToken,
   platformFetch,
   refreshPlatformSession,
   type AuthSuccess,
@@ -168,6 +169,7 @@ export function PlatformAuthProvider({ children }: { children: React.ReactNode }
     } catch {
       // Server-side session may already be gone; local state is still cleared.
     }
+    clearPlatformCsrfToken();
     setAdmin(null);
     setChallenge(null);
     setError(null);

@@ -102,6 +102,7 @@ def verify_mfa_enrollment(
         admin=result.session.admin,
         expires_in=result.session.expires_in,
         recovery_codes=result.recovery_codes,
+        csrf_token=result.session.csrf_token,
     )
 
 
@@ -123,6 +124,7 @@ class MfaEnrollSessionVerifyRequest(BaseModel):
 class MfaEnrollSessionVerifyOut(BaseModel):
     ok: bool
     recovery_codes: list[str] | None = None
+    csrf_token: str | None = None
 
 
 @router.post("/mfa/enroll/start-session", response_model=MfaEnrollSessionStartOut)
@@ -159,6 +161,7 @@ def verify_mfa_enrollment_session(
     return MfaEnrollSessionVerifyOut(
         ok=True,
         recovery_codes=result.recovery_codes,
+        csrf_token=result.session.csrf_token,
     )
 
 
@@ -179,6 +182,7 @@ def verify_mfa_code(
     return AuthSuccessOut(
         admin=result.session.admin,
         expires_in=result.session.expires_in,
+        csrf_token=result.session.csrf_token,
     )
 
 
@@ -198,7 +202,11 @@ def refresh(
         clear_auth_cookies(response)
         raise
     set_auth_cookies(response, issued)
-    return AuthSuccessOut(admin=issued.admin, expires_in=issued.expires_in)
+    return AuthSuccessOut(
+        admin=issued.admin,
+        expires_in=issued.expires_in,
+        csrf_token=issued.csrf_token,
+    )
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
