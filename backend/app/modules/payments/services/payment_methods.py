@@ -30,8 +30,28 @@ def _qr_directory() -> Path:
     return Path(settings.uploads_dir) / "payment_qr"
 
 
+def _configure_cloudinary() -> bool:
+    if not settings.cloudinary_configured:
+        return False
+    import cloudinary  # type: ignore
+
+    cloudinary.config(
+        cloud_name=settings.cloudinary_cloud_name,
+        api_key=settings.cloudinary_api_key,
+        api_secret=settings.cloudinary_api_secret,
+        secure=True,
+    )
+    return True
+
+
+def _has_qr_image(method: PaymentMethodConfig) -> bool:
+    if method.qr_image_secure_url:
+        return True
+    return bool(method.qr_image_name and method.qr_image_ext)
+
+
 def payment_method_out(method: PaymentMethodConfig) -> PaymentMethodOut:
-    has_image = bool(method.qr_image_name and method.qr_image_ext)
+    has_image = _has_qr_image(method)
     return PaymentMethodOut(
         id=method.id,
         label=method.label,
@@ -148,7 +168,27 @@ def update_method(
             detail=";".join(changes),
         )
     db.commit()
-    return _load_method(db, membership.restaurant_id, method_id)
+    return _load_method(db, membership.restaurant_id, method.id)
+
+
+def _remove_qr_file(method: PaymentMethodConfig) -> None:
+    if method.qr_image_public_id and _configure_cloudinary():
+        try:
+            import cloudinary.uploader  # type: ignore
+
+            cloudinary.uploader.destroy(method.qr_image_public_id, invalidate=True)
+        except Exception:
+            pass
+        method.qr_image_public_id = None
+        method.qr_image_secure_url = None
+    if method.qr_image_name and method.qr_image_ext:
+        path = _qr_directory() / f"{method.qr_image_name}.{method.qr_image_ext}"
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        method.qr_image_name = None
+        method.qr_image_ext = None
 
 
 def delete_method(db: Session, membership: RestaurantMembership, method_id: UUID) -> None:
@@ -179,16 +219,6 @@ def delete_method(db: Session, membership: RestaurantMembership, method_id: UUID
     _remove_qr_file(method)
     db.execute(delete(PaymentMethodConfig).where(PaymentMethodConfig.id == method.id))
     db.commit()
-
-
-def _remove_qr_file(method: PaymentMethodConfig) -> None:
-    if not (method.qr_image_name and method.qr_image_ext):
-        return
-    path = _qr_directory() / f"{method.qr_image_name}.{method.qr_image_ext}"
-    try:
-        path.unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 def validate_qr_upload(upload: UploadFile) -> str:
@@ -245,14 +275,45 @@ def save_qr_image(
             "QR images must be 2 MB or smaller.",
         )
 
-    directory = _qr_directory()
-    directory.mkdir(parents=True, exist_ok=True)
+    # Remove any existing image (cloud or local) before storing the new one.
     _remove_qr_file(method)
-    name = uuid_mod.uuid4().hex
-    (directory / f"{name}.{extension}").write_bytes(data)
 
-    method.qr_image_name = name
-    method.qr_image_ext = extension
+    if _configure_cloudinary():
+        import io
+
+        import cloudinary.uploader  # type: ignore
+
+        try:
+            result = cloudinary.uploader.upload(
+                io.BytesIO(data),
+                folder=f"payment_qr/{membership.restaurant_id}",
+                public_id=uuid_mod.uuid4().hex,
+                resource_type="image",
+                overwrite=True,
+            )
+        except Exception as exc:
+            raise AppError(
+                502,
+                "QR_IMAGE_UPLOAD_FAILED",
+                "Upload failed",
+                "Could not upload the QR image to storage. Please try again.",
+            ) from exc
+        method.qr_image_public_id = result.get("public_id")
+        method.qr_image_secure_url = result.get("secure_url")
+        method.qr_image_name = None
+        method.qr_image_ext = None
+        storage_detail = "storage=cloudinary"
+    else:
+        directory = _qr_directory()
+        directory.mkdir(parents=True, exist_ok=True)
+        name = uuid_mod.uuid4().hex
+        (directory / f"{name}.{extension}").write_bytes(data)
+        method.qr_image_name = name
+        method.qr_image_ext = extension
+        method.qr_image_public_id = None
+        method.qr_image_secure_url = None
+        storage_detail = "storage=local"
+
     record_audit(
         db,
         restaurant_id=membership.restaurant_id,
@@ -261,15 +322,23 @@ def save_qr_image(
         entity_id=method.id,
         actor_user_id=membership.user_id,
         actor_membership_id=membership.id,
-        detail=f"label={method.label};qr_image_replaced=true",
+        detail=f"label={method.label};qr_image_replaced=true;{storage_detail}",
     )
     db.commit()
     return _load_method(db, membership.restaurant_id, method.id)
 
 
-def open_qr_file(db: Session, restaurant_id: UUID, method_id: UUID) -> tuple[Path, str]:
+def open_qr_image(db: Session, restaurant_id: UUID, method_id: UUID):
+    """Return ('redirect', url) for Cloudinary-hosted images or ('file', path, media_type) for local."""
     method = _load_method(db, restaurant_id, method_id)
-    if not (method.qr_image_name and method.qr_image_ext):
-        raise AppError(404, "QR_IMAGE_NOT_FOUND", "Not found", "No QR image is set.")
-    media_type = _MEDIA_TYPES.get(method.qr_image_ext, "application/octet-stream")
-    return _qr_directory() / f"{method.qr_image_name}.{method.qr_image_ext}", media_type
+    if method.qr_image_secure_url:
+        return ("redirect", method.qr_image_secure_url)
+    if method.qr_image_name and method.qr_image_ext:
+        media_type = _MEDIA_TYPES.get(method.qr_image_ext, "application/octet-stream")
+        return (
+            "file",
+            _qr_directory() / f"{method.qr_image_name}.{method.qr_image_ext}",
+            media_type,
+        )
+    raise AppError(404, "QR_IMAGE_NOT_FOUND", "Not found", "No QR image is set.")
+

@@ -20,6 +20,8 @@ class PaymentMethodConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     kind: Mapped[str] = mapped_column(String(16), nullable=False)  # CASH | QR
     qr_image_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
     qr_image_ext: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    qr_image_public_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    qr_image_secure_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     account_hint: Mapped[str] = mapped_column(String(160), default="", nullable=False)
     instructions: Mapped[str] = mapped_column(String(500), default="", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

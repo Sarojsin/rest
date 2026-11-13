@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Response, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import Actor, get_actor, require_permission
@@ -75,6 +75,9 @@ def download_qr_image(
     method_id: UUID,
     actor: Actor = Depends(get_actor),
     db: Session = Depends(get_db),
-) -> FileResponse:
-    path, media_type = methods_service.open_qr_file(db, actor.restaurant_id, method_id)
+):
+    result = methods_service.open_qr_image(db, actor.restaurant_id, method_id)
+    if result[0] == "redirect":
+        return RedirectResponse(url=result[1], status_code=307)
+    _, path, media_type = result
     return FileResponse(path, media_type=media_type)
