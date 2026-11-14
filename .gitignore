@@ -88,6 +88,8 @@ junit*.xml
 
 # CI/CD files
 .github/workflows/*
+# ...except the keep-alive ping that prevents the free Render API from idling.
+!.github/workflows/keep-alive.yml
 
 # Security scan results
 *.scan
