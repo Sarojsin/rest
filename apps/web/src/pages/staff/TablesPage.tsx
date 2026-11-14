@@ -54,6 +54,15 @@ function suggestNextCode(tables: Table[]): string {
   return `T${max + 1}`;
 }
 
+/** True when a poll returned exactly what is already rendered. */
+function sameTables(current: Table[], next: Table[]): boolean {
+  if (current.length !== next.length) return false;
+  for (let index = 0; index < current.length; index += 1) {
+    if (JSON.stringify(current[index]) !== JSON.stringify(next[index])) return false;
+  }
+  return true;
+}
+
 export default function TablesPage() {
   const { has } = useAuth();
   const canConfigure = has("tables.configure");
@@ -75,7 +84,10 @@ export default function TablesPage() {
       const data = await apiFetch<Table[]>(
         canConfigure ? "/api/v1/tables?include_archived=true" : "/api/v1/tables"
       );
-      setTables(data);
+      // The 5-second poll runs while the editor sheet is open. Replacing the
+      // array on every poll re-rendered the whole page even when nothing
+      // changed, so keep the previous reference when the payload is identical.
+      setTables((current) => (sameTables(current, data) ? current : data));
       setError(null);
     } catch {
       setError("Could not load tables.");
@@ -170,11 +182,13 @@ export default function TablesPage() {
     setEditor({ mode: "edit", table });
   }
 
-  function closeEditor() {
+  // Stable identity: the Sheet focus trap used to re-run whenever this
+  // function changed, which stole focus from the field being edited.
+  const closeEditor = useCallback(() => {
     setEditor(null);
     setDraft(EMPTY_DRAFT);
     setFormError(null);
-  }
+  }, []);
 
   async function saveTable() {
     if (!editor) return;

@@ -38,6 +38,15 @@ export function Sheet({
 }: SheetProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<HTMLSpanElement>(null);
+  // Callers usually pass an inline arrow function, so `onClose` has a new
+  // identity on every render. Keeping it in a ref lets the focus-trap effect
+  // depend only on `open`; otherwise each parent re-render re-ran the trap and
+  // moved focus to the sheet's first focusable element (the close button),
+  // making text inputs lose focus mid-typing.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
   const titleId = useId();
   const reducedMotion = useReducedMotion() ?? false;
   // The portal lands on <body>, outside the layout's [data-theme] root, so the
@@ -69,7 +78,7 @@ export function Sheet({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab" || !dialog) return;
@@ -99,7 +108,7 @@ export function Sheet({
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <>
